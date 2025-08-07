@@ -236,7 +236,7 @@ const PropertyListings = ({ initialFilters = {} }) => {
       }
       
       // Use proxy configuration to avoid CORS issues
-      const fullUrl = `/api/search`;
+      const fullUrl = `/api/search/`;
       
       console.log('Making API request to:', fullUrl);
       console.log('Request payload:', payload);
