@@ -54,9 +54,9 @@ const PropertyCard = ({ property }) => {
   // Helper function to format price
   const formatPrice = () => {
     // Use the correct backend field names
-    const priceForSale = property.price_for_sale || 0;
-    const pricePerMonth = property.price_per_month || 0;
-    const pricePerNight = property.price_per_night || 0;
+    const priceForSale = Math.round(property.price_for_sale || 0);
+    const pricePerMonth = Math.round(property.price_per_month || 0);
+    const pricePerNight = Math.round(property.price_per_night || 0);
     const propertyListingType = property.property_listing_type || '';
     
     // Check if property is for rent
@@ -70,7 +70,7 @@ const PropertyCard = ({ property }) => {
     
     if (isForRent || isBoth) {
       // For rent or both: show monthly price
-      const rentPrice = pricePerMonth || pricePerNight * 30; // Convert nightly to monthly if needed
+      const rentPrice = pricePerMonth || Math.round(pricePerNight * 30); // Convert nightly to monthly if needed
       return `$${rentPrice.toLocaleString()}/month`;
     } else if (isForSale) {
       // For sale only: show direct price
@@ -236,7 +236,7 @@ const PropertyListings = ({ initialFilters = {} }) => {
       }
       
       // Use proxy configuration to avoid CORS issues
-      const fullUrl = `/api/search/`;
+      const fullUrl = `/search/`;
       
       console.log('Making API request to:', fullUrl);
       console.log('Request payload:', payload);
