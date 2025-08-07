@@ -170,10 +170,10 @@ const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, o
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [filters, setFilters] = useState({
-    location: '',
+    location: 'San Francisco, CA',
     bedrooms: '',
     bathrooms: '',
-    status: '',
+    status: 'For Rent',
     ...initialFilters
   });
 
@@ -381,6 +381,15 @@ const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, o
               >
                 Clear search and show all properties
               </button>
+            </div>
+          )}
+          {!searchResults && (filters.location || filters.status) && (
+            <div className="mt-4">
+              <p className="text-dream-gray-600">
+                Showing properties
+                {filters.status && ` ${filters.status.toLowerCase()}`}
+                {filters.location && ` in ${filters.location}`}
+              </p>
             </div>
           )}
         </div>
