@@ -163,7 +163,7 @@ const PropertyCard = ({ property }) => {
   );
 };
 
-const PropertyListings = ({ initialFilters = {} }) => {
+const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, onClearSearch }) => {
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -303,15 +303,51 @@ const PropertyListings = ({ initialFilters = {} }) => {
     }
   };
 
+  // Handle search results from parent component
   useEffect(() => {
-    fetchProperties(1, false);
+    if (searchResults) {
+      // Transform search results to match expected format
+      let listings = [];
+      
+      if (searchResults?.results && typeof searchResults.results === 'object') {
+        // Convert object to array and add the UUID as the id field
+        listings = Object.entries(searchResults.results).map(([uuid, listing]) => ({
+          ...listing,
+          id: uuid
+        }));
+      } else if (searchResults?.properties && Array.isArray(searchResults.properties)) {
+        // Fallback for old array structure
+        listings = searchResults.properties;
+      } else if (searchResults?.results && Array.isArray(searchResults.results)) {
+        // Fallback for old array structure
+        listings = searchResults.results;
+      }
+      
+      setProperties(listings);
+      setLoading(false);
+      setError(null);
+      setHasMore(searchResults?.has_more || false);
+      setPage(searchResults?.page || 1);
+    } else {
+      // No search results, fetch default properties
+      fetchProperties(1, false);
+    }
+  }, [searchResults]);
+
+  useEffect(() => {
+    // Only fetch initial properties if no search results are provided
+    if (!searchResults) {
+      fetchProperties(1, false);
+    }
   }, []); // Fetch on initial load only
 
   // Handle external filter changes
   useEffect(() => {
     if (Object.keys(initialFilters).length > 0) {
       setFilters(prev => ({ ...prev, ...initialFilters }));
-      fetchProperties(1, false);
+      if (!searchResults) {
+        fetchProperties(1, false);
+      }
     }
   }, [initialFilters]);
 
@@ -331,8 +367,22 @@ const PropertyListings = ({ initialFilters = {} }) => {
         {/* Section Title */}
         <div className="text-center mb-12">
           <h2 className="text-3xl lg:text-4xl font-bold text-dream-gray-800">
-            We Bring Dream Homes To Reality
+            {searchResults ? 'Search Results' : 'We Bring Dream Homes To Reality'}
           </h2>
+          {searchResults && (
+            <div className="mt-4">
+              <p className="text-dream-gray-600 mb-3">
+                Found {properties.length} properties
+                {searchFilters.location && ` in ${searchFilters.location}`}
+              </p>
+              <button
+                onClick={onClearSearch}
+                className="text-dream-blue-600 hover:text-dream-blue-700 underline"
+              >
+                Clear search and show all properties
+              </button>
+            </div>
+          )}
         </div>
 
 
@@ -367,8 +417,8 @@ const PropertyListings = ({ initialFilters = {} }) => {
               ))}
             </div>
             
-            {/* Load More Button */}
-            {hasMore && (
+            {/* Load More Button - only show when not displaying search results */}
+            {hasMore && !searchResults && (
               <div className="text-center mt-8">
                 <button
                   onClick={handleLoadMore}

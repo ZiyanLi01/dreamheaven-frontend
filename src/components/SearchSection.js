@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ChevronDown, Search, Filter } from 'lucide-react';
 import { searchProperties } from '../services/api';
 
-const SearchSection = () => {
+const SearchSection = ({ onSearchResults }) => {
   const [searchData, setSearchData] = useState({
     location: '',
     rent: '',
@@ -74,10 +74,10 @@ const SearchSection = () => {
       const results = await searchProperties(searchPayload);
       console.log('Search results:', results);
       
-      // Here you can handle the results (e.g., update state, navigate to results page)
-      // For now, we'll just log them
-      
-      // You can add navigation to results page or update a global state here
+      // Pass the results to the parent component
+      if (onSearchResults && results) {
+        onSearchResults(results, searchPayload);
+      }
       
     } catch (error) {
       console.error('Error searching properties:', error);
