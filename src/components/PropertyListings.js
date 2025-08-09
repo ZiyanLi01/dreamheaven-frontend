@@ -54,9 +54,9 @@ const PropertyCard = ({ property }) => {
   // Helper function to format price
   const formatPrice = () => {
     // Use the correct backend field names
-    const priceForSale = Math.round(property.price_for_sale || 0);
-    const pricePerMonth = Math.round(property.price_per_month || 0);
-    const pricePerNight = Math.round(property.price_per_night || 0);
+    const priceForSale = property.price_for_sale || 0;
+    const pricePerMonth = property.price_per_month || 0;
+    const pricePerNight = property.price_per_night || 0;
     const propertyListingType = property.property_listing_type || '';
     
     // Check if property is for rent
@@ -70,7 +70,7 @@ const PropertyCard = ({ property }) => {
     
     if (isForRent || isBoth) {
       // For rent or both: show monthly price
-      const rentPrice = pricePerMonth || Math.round(pricePerNight * 30); // Convert nightly to monthly if needed
+      const rentPrice = pricePerMonth || pricePerNight * 30; // Convert nightly to monthly if needed
       return `$${rentPrice.toLocaleString()}/month`;
     } else if (isForSale) {
       // For sale only: show direct price
@@ -163,17 +163,17 @@ const PropertyCard = ({ property }) => {
   );
 };
 
-const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, onClearSearch }) => {
+const PropertyListings = ({ initialFilters = {} }) => {
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [filters, setFilters] = useState({
-    location: 'San Francisco, CA',
+    location: '',
     bedrooms: '',
     bathrooms: '',
-    status: 'For Rent',
+    status: '',
     ...initialFilters
   });
 
@@ -236,7 +236,7 @@ const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, o
       }
       
       // Use proxy configuration to avoid CORS issues
-      const fullUrl = `/search/`;
+      const fullUrl = `/api/search`;
       
       console.log('Making API request to:', fullUrl);
       console.log('Request payload:', payload);
@@ -303,51 +303,15 @@ const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, o
     }
   };
 
-  // Handle search results from parent component
   useEffect(() => {
-    if (searchResults) {
-      // Transform search results to match expected format
-      let listings = [];
-      
-      if (searchResults?.results && typeof searchResults.results === 'object') {
-        // Convert object to array and add the UUID as the id field
-        listings = Object.entries(searchResults.results).map(([uuid, listing]) => ({
-          ...listing,
-          id: uuid
-        }));
-      } else if (searchResults?.properties && Array.isArray(searchResults.properties)) {
-        // Fallback for old array structure
-        listings = searchResults.properties;
-      } else if (searchResults?.results && Array.isArray(searchResults.results)) {
-        // Fallback for old array structure
-        listings = searchResults.results;
-      }
-      
-      setProperties(listings);
-      setLoading(false);
-      setError(null);
-      setHasMore(searchResults?.has_more || false);
-      setPage(searchResults?.page || 1);
-    } else {
-      // No search results, fetch default properties
-      fetchProperties(1, false);
-    }
-  }, [searchResults]);
-
-  useEffect(() => {
-    // Only fetch initial properties if no search results are provided
-    if (!searchResults) {
-      fetchProperties(1, false);
-    }
+    fetchProperties(1, false);
   }, []); // Fetch on initial load only
 
   // Handle external filter changes
   useEffect(() => {
     if (Object.keys(initialFilters).length > 0) {
       setFilters(prev => ({ ...prev, ...initialFilters }));
-      if (!searchResults) {
-        fetchProperties(1, false);
-      }
+      fetchProperties(1, false);
     }
   }, [initialFilters]);
 
@@ -367,31 +331,8 @@ const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, o
         {/* Section Title */}
         <div className="text-center mb-12">
           <h2 className="text-3xl lg:text-4xl font-bold text-dream-gray-800">
-            {searchResults ? 'Search Results' : 'We Bring Dream Homes To Reality'}
+            We Bring Dream Homes To Reality
           </h2>
-          {searchResults && (
-            <div className="mt-4">
-              <p className="text-dream-gray-600 mb-3">
-                Found {properties.length} properties
-                {searchFilters.location && ` in ${searchFilters.location}`}
-              </p>
-              <button
-                onClick={onClearSearch}
-                className="text-dream-blue-600 hover:text-dream-blue-700 underline"
-              >
-                Clear search and show all properties
-              </button>
-            </div>
-          )}
-          {!searchResults && (filters.location || filters.status) && (
-            <div className="mt-4">
-              <p className="text-dream-gray-600">
-                Showing properties
-                {filters.status && ` ${filters.status.toLowerCase()}`}
-                {filters.location && ` in ${filters.location}`}
-              </p>
-            </div>
-          )}
         </div>
 
 
@@ -426,8 +367,8 @@ const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, o
               ))}
             </div>
             
-            {/* Load More Button - only show when not displaying search results */}
-            {hasMore && !searchResults && (
+            {/* Load More Button */}
+            {hasMore && (
               <div className="text-center mt-8">
                 <button
                   onClick={handleLoadMore}

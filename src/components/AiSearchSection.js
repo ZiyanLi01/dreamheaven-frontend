@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Search, Sparkles } from 'lucide-react';
 import { aiSearchProperties } from '../services/api';
 
-const AiSearchSection = ({ onSearchResults }) => {
+const AiSearchSection = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   const handleAiSearch = async () => {
@@ -18,10 +18,8 @@ const AiSearchSection = ({ onSearchResults }) => {
       const results = await aiSearchProperties(searchQuery);
       console.log('AI Search results:', results);
       
-      // Pass the results to the parent component
-      if (onSearchResults && results) {
-        onSearchResults(results, { searchQuery });
-      }
+      // Here you can handle the results (e.g., update state, navigate to results page)
+      // For now, we'll just log them
       
     } catch (error) {
       console.error('Error performing AI search:', error);
