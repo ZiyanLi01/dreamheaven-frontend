@@ -76,10 +76,12 @@ export const getPropertyById = async (propertyId) => {
 
 export const aiSearchProperties = async (query) => {
   try {
+    const authHeaders = getAuthHeaders();
     const response = await fetch(`${API_BASE_URL}/search/ai-search`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...authHeaders
       },
       body: JSON.stringify({ query })
     });
@@ -93,6 +95,79 @@ export const aiSearchProperties = async (query) => {
     console.error('Error performing AI search:', error);
     throw error;
   }
+};
+
+// Authentication functions
+export const loginUser = async (credentials) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(credentials)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || 'Login failed');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error logging in:', error);
+    throw error;
+  }
+};
+
+export const registerUser = async (userData) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(userData)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || 'Registration failed');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error registering user:', error);
+    throw error;
+  }
+};
+
+export const logoutUser = async () => {
+  try {
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      await fetch(`${API_BASE_URL}/auth/logout`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Error logging out:', error);
+  } finally {
+    // Clear local storage regardless of API call success
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('user');
+  }
+};
+
+// Helper function to get auth headers
+export const getAuthHeaders = () => {
+  const token = localStorage.getItem('access_token');
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
 };
 
 // Example search data structure that will be sent to backend:

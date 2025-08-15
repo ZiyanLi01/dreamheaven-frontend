@@ -1,16 +1,27 @@
 import React, { useState } from 'react';
-import { Search, Sparkles } from 'lucide-react';
+import { Search, Sparkles, Lock, X } from 'lucide-react';
 import { aiSearchProperties } from '../services/api';
 
-const AiSearchSection = () => {
+const AiSearchSection = ({ user, onLoginRequired }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [showEmptyQueryModal, setShowEmptyQueryModal] = useState(false);
+  const [showLoginRequiredModal, setShowLoginRequiredModal] = useState(false);
 
   const handleAiSearch = async () => {
     if (!searchQuery.trim()) {
-      console.log('Please enter a search query');
+      setShowEmptyQueryModal(true);
       return;
     }
 
+    // Check if user is logged in
+    if (!user) {
+      // Show custom modal instead of browser alert
+      setShowLoginRequiredModal(true);
+      return;
+    }
+
+    setIsSearching(true);
     try {
       console.log('AI Search query:', searchQuery);
       
@@ -24,6 +35,8 @@ const AiSearchSection = () => {
     } catch (error) {
       console.error('Error performing AI search:', error);
       // Here you can show an error message to the user
+    } finally {
+      setIsSearching(false);
     }
   };
 
@@ -51,6 +64,8 @@ const AiSearchSection = () => {
 
         <div className="bg-white rounded-2xl shadow-lg p-6 lg:p-8">
           <div className="space-y-4">
+
+            
             {/* Search Input */}
             <div className="relative">
               <textarea
@@ -65,9 +80,20 @@ const AiSearchSection = () => {
               <div className="absolute bottom-4 right-4">
                 <button
                   onClick={handleAiSearch}
-                  className="bg-dream-blue-600 hover:bg-dream-blue-700 text-white px-6 py-3 rounded-lg transition-colors duration-200 font-medium"
+                  disabled={isSearching}
+                  className="bg-dream-blue-600 hover:bg-dream-blue-700 text-white px-6 py-3 rounded-lg transition-colors duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                 >
-                  Search
+                  {isSearching ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>Searching...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Search className="w-4 h-4" />
+                      <span>Search</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -120,6 +146,114 @@ const AiSearchSection = () => {
           </div>
         </div>
       </div>
+
+      {/* Empty Query Modal */}
+      {showEmptyQueryModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            {/* Header */}
+            <div className="flex justify-between items-center p-6 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-800">
+                Enter Your Search Query
+              </h2>
+              <button
+                onClick={() => setShowEmptyQueryModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <p className="text-gray-700 mb-4">
+                Please enter a search query to find your dream home. Try describing what you're looking for, such as:
+              </p>
+              
+              <div className="space-y-2 mb-6">
+                {[
+                  "Modern apartment with city view",
+                  "Family home near good schools",
+                  "Quiet neighborhood with garden",
+                  "Downtown condo with parking",
+                  "House with pool and backyard"
+                ].map((example, index) => (
+                  <div key={index} className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-dream-blue-600 rounded-full"></div>
+                    <span className="text-gray-600 text-sm">"{example}"</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setShowEmptyQueryModal(false)}
+                  className="bg-dream-blue-600 text-white px-6 py-2 rounded-md hover:bg-dream-blue-700 transition-colors"
+                >
+                  Got it
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Login Required Modal */}
+      {showLoginRequiredModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            {/* Header */}
+            <div className="flex justify-between items-center p-6 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-800">
+                Sign In Required
+              </h2>
+              <button
+                onClick={() => setShowLoginRequiredModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
+                  <Lock className="w-5 h-5 text-orange-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-medium text-gray-800">AI Search Feature</h3>
+                  <p className="text-sm text-gray-600">Our advanced AI search requires authentication</p>
+                </div>
+              </div>
+              
+              <p className="text-gray-700 mb-6">
+                To use our AI-powered search feature, you need to sign in to your account. This helps us provide personalized and secure search results.
+              </p>
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowLoginRequiredModal(false)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowLoginRequiredModal(false);
+                    if (onLoginRequired && typeof onLoginRequired === 'function') {
+                      onLoginRequired();
+                    }
+                  }}
+                  className="bg-dream-blue-600 text-white px-6 py-2 rounded-md hover:bg-dream-blue-700 transition-colors"
+                >
+                  Sign In
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 };
