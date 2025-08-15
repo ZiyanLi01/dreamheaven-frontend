@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronDown, Search, Filter } from 'lucide-react';
-import { searchProperties } from '../services/api';
 
-const SearchSection = () => {
+const SearchSection = ({ onSearch, isSearching }) => {
   const [searchData, setSearchData] = useState({
     location: '',
     rent: '',
@@ -49,39 +48,20 @@ const SearchSection = () => {
   };
 
   const handleSearch = async () => {
-    try {
-      // Filter out empty values and dropdown states
-      const searchPayload = {
-        location: searchData.location,
-        rent: searchData.rent,
-        bed: searchData.bed,
-        bath: searchData.bath,
-        searchQuery: searchData.searchQuery,
-        sortBy: searchData.sortBy,
-        sortOrder: searchData.sortOrder
-      };
+    // Filter out empty values and dropdown states
+    const searchPayload = {
+      location: searchData.location,
+      rent: searchData.rent,
+      bed: searchData.bed,
+      bath: searchData.bath,
+      searchQuery: searchData.searchQuery,
+      sortBy: searchData.sortBy,
+      sortOrder: searchData.sortOrder
+    };
 
-      // Remove empty values
-      Object.keys(searchPayload).forEach(key => {
-        if (!searchPayload[key]) {
-          delete searchPayload[key];
-        }
-      });
-
-      console.log('Search data to send to backend:', searchPayload);
-      
-      // Call the API service
-      const results = await searchProperties(searchPayload);
-      console.log('Search results:', results);
-      
-      // Here you can handle the results (e.g., update state, navigate to results page)
-      // For now, we'll just log them
-      
-      // You can add navigation to results page or update a global state here
-      
-    } catch (error) {
-      console.error('Error searching properties:', error);
-      // Here you can show an error message to the user
+    // Call the parent's search handler
+    if (onSearch) {
+      await onSearch(searchPayload);
     }
   };
 
@@ -239,10 +219,20 @@ const SearchSection = () => {
             <div>
               <button 
                 onClick={handleSearch}
-                className="bg-dream-blue-600 hover:bg-dream-blue-700 text-white px-4 py-3 rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2 w-full"
+                disabled={isSearching}
+                className="bg-dream-blue-600 hover:bg-dream-blue-700 text-white px-4 py-3 rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2 w-full disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Search className="w-4 h-4" />
-                <span className="hidden sm:inline">Search</span>
+                {isSearching ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span className="hidden sm:inline">Searching...</span>
+                  </>
+                ) : (
+                  <>
+                    <Search className="w-4 h-4" />
+                    <span className="hidden sm:inline">Search</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

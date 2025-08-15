@@ -163,7 +163,7 @@ const PropertyCard = ({ property }) => {
   );
 };
 
-const PropertyListings = ({ initialFilters = {} }) => {
+const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, onClearSearch }) => {
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -236,7 +236,7 @@ const PropertyListings = ({ initialFilters = {} }) => {
       }
       
       // Use proxy configuration to avoid CORS issues
-      const fullUrl = `/api/search`;
+      const fullUrl = `/search`;
       
       console.log('Making API request to:', fullUrl);
       console.log('Request payload:', payload);
@@ -303,8 +303,37 @@ const PropertyListings = ({ initialFilters = {} }) => {
     }
   };
 
+  // Handle search results from parent component
   useEffect(() => {
-    fetchProperties(1, false);
+    if (searchResults) {
+      // Handle search results from SearchSection
+      let listings = [];
+      
+      if (searchResults?.properties && Array.isArray(searchResults.properties)) {
+        listings = searchResults.properties;
+      } else if (searchResults?.results && Array.isArray(searchResults.results)) {
+        listings = searchResults.results;
+      } else if (searchResults?.results && typeof searchResults.results === 'object') {
+        // Convert object to array and add the UUID as the id field
+        listings = Object.entries(searchResults.results).map(([uuid, listing]) => ({
+          ...listing,
+          id: uuid
+        }));
+      }
+      
+      setProperties(listings);
+      setHasMore(false); // Don't show load more for search results
+      setError(null);
+    } else {
+      // No search results, fetch initial properties
+      fetchProperties(1, false);
+    }
+  }, [searchResults]);
+
+  useEffect(() => {
+    if (!searchResults) {
+      fetchProperties(1, false);
+    }
   }, []); // Fetch on initial load only
 
   // Handle external filter changes
@@ -331,8 +360,24 @@ const PropertyListings = ({ initialFilters = {} }) => {
         {/* Section Title */}
         <div className="text-center mb-12">
           <h2 className="text-3xl lg:text-4xl font-bold text-dream-gray-800">
-            We Bring Dream Homes To Reality
+            {searchResults ? 'Search Results' : 'We Bring Dream Homes To Reality'}
           </h2>
+          {searchResults && (
+            <div className="mt-4">
+              <p className="text-dream-gray-600">
+                Found {properties.length} properties
+                {Object.keys(searchFilters).length > 0 && (
+                  <span> matching your criteria</span>
+                )}
+              </p>
+              <button 
+                onClick={onClearSearch}
+                className="mt-2 text-dream-blue-600 hover:text-dream-blue-700 underline"
+              >
+                Clear search and show all properties
+              </button>
+            </div>
+          )}
         </div>
 
 
