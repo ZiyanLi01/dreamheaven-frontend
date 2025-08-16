@@ -1,7 +1,7 @@
 // API service for Dream Haven backend communication
 
-// Main Backend (Port 8000) - for regular search, authentication, property listings
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+// Main Backend (Port 8080) - for regular search, authentication, property listings
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
 
 // AI/RAG Backend (Port 8001) - for AI search functionality
 const AI_BASE_URL = process.env.REACT_APP_AI_API_URL || 'http://localhost:8001';

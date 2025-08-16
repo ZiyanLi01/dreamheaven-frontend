@@ -233,6 +233,13 @@ const AiSearchSection = ({ user, onLoginRequired, onSearchResults }) => {
       const results = await aiSearchProperties(searchQuery);
       console.log('AI Search results:', results);
       
+      // Debug: Check the structure of individual properties
+      if (results.items && results.items.length > 0) {
+        console.log('First property structure:', results.items[0]);
+        console.log('Properties with reasons:', results.items.filter(p => p.reason).length);
+        console.log('Properties without reasons:', results.items.filter(p => !p.reason).length);
+      }
+      
       // Store results locally for display
       setAiSearchResults(results);
       
@@ -322,15 +329,15 @@ const AiSearchSection = ({ user, onLoginRequired, onSearchResults }) => {
                     </button>
                   </div>
                   
-                  {aiSearchResults.results && aiSearchResults.results.length > 0 ? (
+                  {(aiSearchResults.results || aiSearchResults.items) && (aiSearchResults.results || aiSearchResults.items).length > 0 ? (
                     <div>
                       <p className="text-sm text-gray-600 mb-4">
-                        Found {aiSearchResults.results.length} properties for: "{aiSearchResults.query}"
+                        Found {(aiSearchResults.results || aiSearchResults.items).length} properties for: "{aiSearchResults.query}"
                       </p>
                       
                       {/* 10 rows, 2 columns each */}
                       <div className="space-y-6">
-                        {aiSearchResults.results.slice(0, 10).map((property, index) => (
+                        {(aiSearchResults.results || aiSearchResults.items).slice(0, 10).map((property, index) => (
                           <div key={property.id || index} className="flex gap-6">
                             {/* Left Column - Listing Card (same format as home page) */}
                             <div className="flex-1">
@@ -360,11 +367,36 @@ const AiSearchSection = ({ user, onLoginRequired, onSearchResults }) => {
                                 <div>
                                   <h5 className="text-sm font-medium text-gray-700 mb-2">Why We Recommend This Property</h5>
                                   <div className="bg-white border border-gray-300 rounded p-3 min-h-[100px]">
-                                    <p className="text-sm text-gray-600">
-                                      {/* Placeholder text - will be implemented in RAG backend later */}
-                                      This property matches your search criteria based on location, features, and preferences. 
-                                      The AI analysis shows strong alignment with your requirements for a modern apartment with city view.
-                                    </p>
+                                    {property.reason ? (
+                                      <ul className="text-sm text-gray-600 space-y-1">
+                                        {property.reason.split('\n').map((bullet, idx) => (
+                                          bullet.trim() && (
+                                            <li key={idx} className="flex items-start">
+                                              <span className="text-dream-blue-600 mr-2 mt-1">•</span>
+                                              <span>{bullet.trim()}</span>
+                                            </li>
+                                          )
+                                        ))}
+                                      </ul>
+                                    ) : (
+                                      <div className="text-sm text-gray-600">
+                                        <p className="mb-2">This property matches your search criteria based on:</p>
+                                        <ul className="space-y-1">
+                                          <li className="flex items-start">
+                                            <span className="text-dream-blue-600 mr-2 mt-1">•</span>
+                                            <span>Location and neighborhood preferences</span>
+                                          </li>
+                                          <li className="flex items-start">
+                                            <span className="text-dream-blue-600 mr-2 mt-1">•</span>
+                                            <span>Property features and amenities</span>
+                                          </li>
+                                          <li className="flex items-start">
+                                            <span className="text-dream-blue-600 mr-2 mt-1">•</span>
+                                            <span>Price range and value considerations</span>
+                                          </li>
+                                        </ul>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               </div>
