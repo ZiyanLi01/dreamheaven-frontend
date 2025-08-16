@@ -145,6 +145,7 @@ function App() {
       <AiSearchSection 
         user={user}
         onLoginRequired={() => openLoginModal('login')}
+        onSearchResults={handleSearch}
       />
       <SearchSection onSearch={handleSearch} isSearching={isSearching} />
       <PropertyListings 

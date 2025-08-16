@@ -1,6 +1,20 @@
 // API service for Dream Haven backend communication
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || '';
+// Main Backend (Port 8000) - for regular search, authentication, property listings
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+
+// AI/RAG Backend (Port 8001) - for AI search functionality
+const AI_BASE_URL = process.env.REACT_APP_AI_API_URL || 'http://localhost:8001';
+
+/*
+Environment Variables Configuration:
+Create a .env file in your project root with:
+
+REACT_APP_API_URL=http://localhost:8000
+REACT_APP_AI_API_URL=http://localhost:8001
+
+This allows you to easily switch between different backend environments.
+*/
 
 export const searchProperties = async (searchData) => {
   try {
@@ -77,7 +91,11 @@ export const getPropertyById = async (propertyId) => {
 export const aiSearchProperties = async (query) => {
   try {
     const authHeaders = getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/search/ai-search`, {
+    console.log('AI Search - Making request to:', `${AI_BASE_URL}/ai-search`);
+    console.log('AI Search - Auth headers:', authHeaders);
+    console.log('AI Search - Query:', query);
+    
+    const response = await fetch(`${AI_BASE_URL}/ai-search`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -86,11 +104,18 @@ export const aiSearchProperties = async (query) => {
       body: JSON.stringify({ query })
     });
 
+    console.log('AI Search - Response status:', response.status);
+    console.log('AI Search - Response headers:', response.headers);
+
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorText = await response.text();
+      console.error('AI Search - Error response:', errorText);
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
     }
 
-    return await response.json();
+    const result = await response.json();
+    console.log('AI Search - Success response:', result);
+    return result;
   } catch (error) {
     console.error('Error performing AI search:', error);
     throw error;

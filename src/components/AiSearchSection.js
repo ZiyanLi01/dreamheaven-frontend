@@ -1,12 +1,216 @@
 import React, { useState } from 'react';
-import { Search, Sparkles, Lock, X } from 'lucide-react';
+import { Search, Sparkles, Lock, X, Bed, Bath, Ruler, Car, MapPin } from 'lucide-react';
 import { aiSearchProperties } from '../services/api';
 
-const AiSearchSection = ({ user, onLoginRequired }) => {
+// PropertyCard component (same as in PropertyListings)
+const PropertyCard = ({ property }) => {
+  // Helper function to format address
+  const formatAddress = () => {
+    if (property.address) {
+      return property.address;
+    }
+    
+    // Handle AI backend title format (extract address from title)
+    if (property.title) {
+      // Remove location data from title if present
+      let cleanTitle = property.title;
+      if (property.title.includes('{')) {
+        cleanTitle = property.title.replace(/\{.*?\}/, '').trim();
+      }
+      return cleanTitle;
+    }
+    
+    const parts = [];
+    if (property.city) parts.push(property.city);
+    if (property.state) parts.push(property.state);
+    if (property.zipcode) parts.push(property.zipcode);
+    
+    return parts.length > 0 ? parts.join(', ') : 'Address not available';
+  };
+
+  // Helper function to get property title
+  const getPropertyTitle = () => {
+    if (property.title) {
+      return property.title;
+    }
+    // Extract title from address
+    if (property.address) {
+      const addressParts = property.address.split(',');
+      return addressParts[0] || 'Property';
+    }
+    return 'Property';
+  };
+
+  // Helper function to get location (city, state)
+  const getLocation = () => {
+    // Handle AI backend location format (embedded in title)
+    if (property.title && property.title.includes('{')) {
+      try {
+        const locationMatch = property.title.match(/\{.*?\}/);
+        if (locationMatch) {
+          // Convert single quotes to double quotes for JSON parsing
+          let jsonString = locationMatch[0];
+          jsonString = jsonString.replace(/'/g, '"');
+          
+          const locationData = JSON.parse(jsonString);
+          if (locationData.name && locationData.state) {
+            return `${locationData.name}, ${locationData.state}`;
+          }
+        }
+      } catch (e) {
+        console.error('Error parsing location from title:', e);
+      }
+    }
+    
+    // Handle regular backend format
+    if (property.city && property.state) {
+      return `${property.city}, ${property.state}`;
+    }
+    if (property.city) {
+      return property.city;
+    }
+    return 'Location not available';
+  };
+
+  // Helper function to get image URL with fallback
+  const getImageUrl = () => {
+    if (property.images && property.images.length > 0) {
+      return property.images[0];
+    }
+    if (property.image_url) {
+      return property.image_url;
+    }
+    // Fallback placeholder image
+    return 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&h=300&fit=crop';
+  };
+
+  // Helper function to format price
+  const formatPrice = () => {
+    // Handle AI backend price field (just 'price')
+    if (property.price) {
+      return `$${Math.round(property.price).toLocaleString()}`;
+    }
+    
+    // Use the correct backend field names for main backend
+    const priceForSale = property.price_for_sale || 0;
+    const pricePerMonth = property.price_per_month || 0;
+    const pricePerNight = property.price_per_night || 0;
+    const propertyListingType = property.property_listing_type || '';
+    
+    // Check if property is for rent
+    const isForRent = propertyListingType === 'rent';
+    
+    // Check if property is for sale
+    const isForSale = propertyListingType === 'sale';
+    
+    // Check if property is both (rent and sale)
+    const isBoth = propertyListingType === 'both';
+    
+    if (isForRent || isBoth) {
+      // For rent or both: show monthly price
+      const rentPrice = pricePerMonth || pricePerNight * 30; // Convert nightly to monthly if needed
+      return `$${rentPrice.toLocaleString()}/month`;
+    } else if (isForSale) {
+      // For sale only: show direct price
+      return `$${priceForSale.toLocaleString()}`;
+    } else {
+      // Default fallback - assume it's for sale
+      return `$${priceForSale.toLocaleString()}`;
+    }
+  };
+
+  // Helper function to get status
+  const getStatus = () => {
+    const propertyListingType = property.property_listing_type || '';
+    
+    if (propertyListingType === 'rent') {
+      return 'For Rent';
+    }
+    if (propertyListingType === 'sale') {
+      return 'For Sale';
+    }
+    if (propertyListingType === 'both') {
+      return 'For Rent';
+    }
+    return 'For Sale'; // Default fallback
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
+      {/* Property Image */}
+      <div className="relative h-48 bg-gradient-to-br from-blue-100 to-blue-200">
+        {getImageUrl() && (
+          <img 
+            src={getImageUrl()} 
+            alt={formatAddress()}
+            className="w-full h-full object-cover"
+          />
+        )}
+        
+        {/* Status Badge - Top Right */}
+        <div className="absolute top-3 right-3">
+          <span className="bg-dream-blue-800 text-white text-xs px-2 py-1 rounded font-medium">
+            {getStatus()}
+          </span>
+        </div>
+      </div>
+
+      {/* Property Details */}
+      <div className="p-4 space-y-4">
+        {/* Address and Location */}
+        <div>
+          <h3 className="font-bold text-dream-gray-800 text-lg mb-1 truncate">
+            {formatAddress()}
+          </h3>
+          <div className="flex items-center space-x-1 text-sm text-dream-gray-500">
+            <MapPin className="w-3 h-3" />
+            <span className="truncate">{getLocation()}</span>
+          </div>
+        </div>
+
+        {/* Key Details */}
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="flex items-center space-x-2">
+            <Ruler className="w-4 h-4 text-dream-gray-400" />
+            <span className="text-dream-gray-600">
+              {property.square_feet !== undefined ? property.square_feet : 'N/A'} Square Feet
+            </span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Car className="w-4 h-4 text-dream-gray-400" />
+            <span className="text-dream-gray-600">
+              {property.garage_number !== undefined ? property.garage_number : 'N/A'} Garage
+            </span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Bed className="w-4 h-4 text-dream-gray-400" />
+            <span className="text-dream-gray-600">
+              {property.bedrooms !== undefined ? property.bedrooms : 'N/A'} Bedrooms
+            </span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Bath className="w-4 h-4 text-dream-gray-400" />
+            <span className="text-dream-gray-600">
+              {property.bathrooms !== undefined ? property.bathrooms : 'N/A'} Bathrooms
+            </span>
+          </div>
+        </div>
+
+        {/* Price */}
+        <div className="bg-dream-blue-600 text-white text-center py-3 rounded-lg font-bold text-lg">
+          {formatPrice()}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const AiSearchSection = ({ user, onLoginRequired, onSearchResults }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [showEmptyQueryModal, setShowEmptyQueryModal] = useState(false);
   const [showLoginRequiredModal, setShowLoginRequiredModal] = useState(false);
+  const [aiSearchResults, setAiSearchResults] = useState(null);
 
   const handleAiSearch = async () => {
     if (!searchQuery.trim()) {
@@ -14,7 +218,7 @@ const AiSearchSection = ({ user, onLoginRequired }) => {
       return;
     }
 
-    // Check if user is logged in
+    // Check if user is logged in - AI search requires authentication
     if (!user) {
       // Show custom modal instead of browser alert
       setShowLoginRequiredModal(true);
@@ -29,12 +233,16 @@ const AiSearchSection = ({ user, onLoginRequired }) => {
       const results = await aiSearchProperties(searchQuery);
       console.log('AI Search results:', results);
       
-      // Here you can handle the results (e.g., update state, navigate to results page)
-      // For now, we'll just log them
+      // Store results locally for display
+      setAiSearchResults(results);
+      
+      // Note: We're displaying AI results locally, so we don't need to pass to parent
+      // This prevents the error of calling regular search API with AI results
       
     } catch (error) {
       console.error('Error performing AI search:', error);
-      // Here you can show an error message to the user
+      // Show error message to user
+      alert(`AI search failed: ${error.message}`);
     } finally {
       setIsSearching(false);
     }
@@ -97,6 +305,83 @@ const AiSearchSection = ({ user, onLoginRequired }) => {
                 </button>
               </div>
             </div>
+
+            {/* AI Search Results */}
+            {aiSearchResults && (
+              <div className="mt-8">
+                <div className="border-t border-gray-200 pt-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-800">
+                      AI Search Results
+                    </h3>
+                    <button
+                      onClick={() => setAiSearchResults(null)}
+                      className="text-gray-500 hover:text-gray-700 text-sm"
+                    >
+                      Clear Results
+                    </button>
+                  </div>
+                  
+                  {aiSearchResults.results && aiSearchResults.results.length > 0 ? (
+                    <div>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Found {aiSearchResults.results.length} properties for: "{aiSearchResults.query}"
+                      </p>
+                      
+                      {/* 10 rows, 2 columns each */}
+                      <div className="space-y-6">
+                        {aiSearchResults.results.slice(0, 10).map((property, index) => (
+                          <div key={property.id || index} className="flex gap-6">
+                            {/* Left Column - Listing Card (same format as home page) */}
+                            <div className="flex-1">
+                              <PropertyCard property={property} />
+                            </div>
+                            
+                            {/* Right Column - Similarity Score & Explanation */}
+                            <div className="w-80">
+                              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                {/* Similarity Score Bar */}
+                                <div className="mb-4">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm font-medium text-gray-700">Similarity Score</span>
+                                    <span className="text-sm text-gray-600">
+                                      {Math.round((property.similarity_score || 0) * 100)}%
+                                    </span>
+                                  </div>
+                                  <div className="w-full bg-gray-200 rounded-full h-2">
+                                    <div 
+                                      className="bg-dream-blue-600 h-2 rounded-full transition-all duration-300"
+                                      style={{ width: `${(property.similarity_score || 0) * 100}%` }}
+                                    ></div>
+                                  </div>
+                                </div>
+                                
+                                {/* Explanation Text Box */}
+                                <div>
+                                  <h5 className="text-sm font-medium text-gray-700 mb-2">Why We Recommend This Property</h5>
+                                  <div className="bg-white border border-gray-300 rounded p-3 min-h-[100px]">
+                                    <p className="text-sm text-gray-600">
+                                      {/* Placeholder text - will be implemented in RAG backend later */}
+                                      This property matches your search criteria based on location, features, and preferences. 
+                                      The AI analysis shows strong alignment with your requirements for a modern apartment with city view.
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-gray-600">No properties found matching your search.</p>
+                      <p className="text-sm text-gray-500 mt-2">Try different keywords or descriptions.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Example Queries */}
             <div className="text-center">
