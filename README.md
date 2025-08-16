@@ -1,31 +1,36 @@
 # DreamHeaven Frontend
 
-A modern, responsive real estate platform built with React and Tailwind CSS. DreamHeaven showcases a beautiful UI design for a next-generation real estate platform with AI-powered search capabilities and an intuitive user experience.
+A modern, responsive real estate platform built with React and Tailwind CSS. DreamHeaven showcases a beautiful UI design for a next-generation real estate platform with AI-powered search capabilities, user authentication, and an intuitive user experience.
 
-## 🏠 Features
+## Features
 
 - **Modern Real Estate UI** - Clean, professional design with property listings and search functionality
-- **AI-Powered Search** - Natural language search capabilities for finding properties
+- **AI-Powered Search** - Natural language search capabilities for finding properties with recommendation reasons
+- **User Authentication** - Login and registration system with protected features
 - **Advanced Filtering** - Comprehensive search filters for location, price, bedrooms, bathrooms, and more
 - **Responsive Design** - Mobile-first approach with responsive breakpoints for all devices
 - **Component-Based Architecture** - Modular, reusable React components
 - **Performance Optimized** - Fast loading and smooth interactions
 - **Tailwind CSS** - Utility-first CSS framework for rapid UI development
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 - **Frontend Framework**: React 18
 - **Styling**: Tailwind CSS
 - **Icons**: Lucide React
 - **Build Tool**: Create React App
 - **Package Manager**: npm
+- **Authentication**: Local storage with JWT tokens
+- **API Integration**: Fetch API with proxy configuration
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
 - Node.js (version 14 or higher)
 - npm package manager
+- Backend server running on port 8080 (main API)
+- AI/RAG backend running on port 8001 (AI search)
 
 ### Installation
 
@@ -55,7 +60,7 @@ A modern, responsive real estate platform built with React and Tailwind CSS. Dre
 - `npm test` - Launches the test runner
 - `npm eject` - Ejects from Create React App (one-way operation)
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 dreamheaven-frontend/
@@ -65,29 +70,26 @@ dreamheaven-frontend/
 │   └── logo1.png, logo2.png        # Logo assets
 ├── src/
 │   ├── components/        # React components
-│   │   ├── Header.js      # Navigation header with logo
+│   │   ├── Header.js      # Navigation header with logo and user auth
 │   │   ├── Hero.js        # Hero section with search
 │   │   ├── SearchSection.js # Traditional search filters
-│   │   ├── AiSearchSection.js # AI-powered search interface
+│   │   ├── AiSearchSection.js # AI-powered search interface with results
 │   │   ├── PropertyListings.js # Property grid and cards
 │   │   ├── Testimonials.js # Customer testimonials
-│   │   └── Footer.js      # Footer with contact info
+│   │   ├── Footer.js      # Footer with contact info
+│   │   └── LoginModal.js  # User authentication modal
 │   ├── services/
-│   │   └── api.js         # API service functions
-│   ├── App.js             # Main application component
+│   │   └── api.js         # API service functions for all endpoints
+│   ├── App.js             # Main application component with state management
 │   ├── index.js           # Application entry point
 │   └── index.css          # Global styles and Tailwind imports
-├── backend/               # Backend server files
-│   ├── server.js          # Express server
-│   ├── package.json       # Backend dependencies
-│   └── README.md          # Backend documentation
-├── package.json           # Frontend dependencies
+├── package.json           # Frontend dependencies and proxy configuration
 ├── tailwind.config.js     # Tailwind CSS configuration
 ├── postcss.config.js      # PostCSS configuration
 └── README.md              # This file
 ```
 
-## 🎨 Design System
+## Design System
 
 ### Colors
 - **Primary Blue**: `#2563eb` (Blue-600)
@@ -105,12 +107,12 @@ dreamheaven-frontend/
 - **Inputs**: Clean form fields with focus states
 - **Icons**: Lucide React icons for consistency
 
-## 🔍 Features Overview
+## Features Overview
 
 ### Header Component
-- DreamHeaven logo with house icon
-- User profile button
-- Clean navigation design
+- DreamHeaven logo (clickable, returns to home page)
+- User authentication status
+- Login/logout functionality with user menu
 
 ### Hero Section
 - Compelling headline and value proposition
@@ -122,18 +124,24 @@ dreamheaven-frontend/
 - Property type, location, and amenity filters
 - Price range and bedroom/bathroom filters
 - Sort options
+- State management integration with App.js
 
 ### AiSearchSection Component
 - Natural language search interface
-- AI-powered property search
-- User-friendly query input
+- AI-powered property search with authentication requirement
+- User-friendly query input with examples
+- Results display with 2-column layout (property card + recommendation reasons)
+- Similarity score visualization
+- Load more functionality
 
 ### PropertyListings Component
 - Grid layout of property cards
 - Property images, status tags, and details
 - Key information (bedrooms, bathrooms, square footage)
 - Agent information and listing age
-- Pricing display
+- Pricing display with integer formatting
+- Default filters (San Francisco, CA, For Rent)
+- Search results integration
 
 ### Testimonials Component
 - Customer testimonials in card format
@@ -145,92 +153,84 @@ dreamheaven-frontend/
 - Contact information
 - Legal links and copyright
 
-## 🔧 Customization
+### LoginModal Component
+- User registration and login forms
+- Form validation and error handling
+- Password visibility toggle
+- Loading states and success feedback
+
+## Backend Integration
+
+### Environment Setup
+
+The application uses proxy configuration in `package.json` for development:
+
+```json
+{
+  "proxy": "http://localhost:8080"
+}
+```
+
+### API Endpoints
+
+The frontend integrates with two backend services:
+
+#### Main Backend (Port 8080)
+- **Authentication**: `/auth/login`, `/auth/register`, `/auth/logout`
+- **Property Search**: `/search`
+- **Property Listings**: `/listings`
+
+#### AI/RAG Backend (Port 8001)
+- **AI Search**: `/ai-search`
+
+### API Service Functions
+
+Located in `src/services/api.js`:
+
+- `searchProperties(searchData)` - Traditional property search
+- `getProperties(filters)` - Get property listings
+- `getPropertyById(propertyId)` - Get specific property
+- `aiSearchProperties(query)` - AI natural language search
+- `loginUser(credentials)` - User authentication
+- `registerUser(userData)` - User registration
+- `logoutUser()` - User logout
+- `getAuthHeaders()` - Get authentication headers
+
+### Testing the Integration
+
+1. **Start your main backend server** on port 8080
+2. **Start your AI/RAG backend server** on port 8001
+3. **Start the frontend**: `npm start`
+4. **Test the functionality**:
+   - Register/login with user authentication
+   - Use traditional filters in SearchSection
+   - Use AI natural language search (requires login)
+   - Check browser console for API responses
+
+## State Management
+
+The application uses React hooks for state management:
+
+- **App.js**: Central state for search results, user authentication, and modal management
+- **Component State**: Local state for UI interactions and form data
+- **Local Storage**: Persistence for user authentication tokens
+
+## Customization
 
 ### Adding New Properties
-Edit the `properties` array in `src/components/PropertyListings.js`:
-
-```javascript
-const properties = [
-  {
-    id: 1,
-    status: "For Sale",
-    address: "Your Address",
-    location: "City, State ZIP",
-    sqft: "2500",
-    garages: "2",
-    bedrooms: "4",
-    bathrooms: "3",
-    agent: "Agent Name",
-    listingAge: "2 days ago",
-    price: "$750,000"
-  }
-  // Add more properties...
-];
-```
+Properties are fetched from the backend API. To modify the display format, edit the `PropertyCard` component in `PropertyListings.js` or `AiSearchSection.js`.
 
 ### Styling Customization
 - Modify `tailwind.config.js` for color schemes and theme customization
 - Update `src/index.css` for custom component styles
 - Use Tailwind utility classes for quick styling
 
-## 🌐 Backend Integration
+### Authentication Customization
+- Modify `LoginModal.js` for different authentication flows
+- Update `api.js` for different authentication endpoints
+- Customize user session management in `App.js`
 
-### Environment Setup
-
-Create a `.env` file in the root directory with your backend API URL:
-
-```bash
-# .env
-REACT_APP_API_URL=http://localhost:8000/api
-```
-
-### API Endpoints
-
-The frontend is configured to work with these backend endpoints:
-
-#### Traditional Search
-- **Endpoint**: `POST /api/search`
-- **Payload**: 
-```json
-{
-  "location": "Beverly Hills, CA",
-  "rent": "For Sale",
-  "bed": "3+",
-  "bath": "2+",
-  "searchQuery": "modern house with pool",
-  "sortBy": "price",
-  "sortOrder": "asc"
-}
-```
-
-#### AI Natural Language Search
-- **Endpoint**: `POST /api/ai-search`
-- **Payload**:
-```json
-{
-  "query": "Modern house in San Francisco with big yard, near good schools"
-}
-```
-
-#### Get Properties
-- **Endpoint**: `GET /api/properties`
-- **Query Parameters**: Filters for location, price, etc.
-
-#### Get Property by ID
-- **Endpoint**: `GET /api/properties/{id}`
-
-### Testing the Integration
-
-1. **Start your backend server** (e.g., on port 8000)
-2. **Set the API URL** in your `.env` file
-3. **Start the frontend**: `npm start`
-4. **Test the search functionality**:
-   - Use the traditional filters in SearchSection
-   - Use the AI natural language search in AiSearchSection
-   - Check browser console for API responses
-
-## 📦 Deployment
+## Deployment
 
 ### Build for Production
 ```bash
@@ -239,13 +239,18 @@ npm run build
 
 The build folder will contain the optimized production files ready for deployment.
 
+### Environment Variables
+For production, set these environment variables:
+- `REACT_APP_API_URL` - Main backend URL
+- `REACT_APP_AI_API_URL` - AI backend URL
+
 ### Deployment Options
 - **Netlify**: Drag and drop the build folder or connect your GitHub repository
 - **Vercel**: Connect your GitHub repository for automatic deployments
 - **AWS S3**: Upload build files to S3 bucket
 - **Traditional Hosting**: Upload build files to your web server
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
@@ -253,11 +258,11 @@ The build folder will contain the optimized production files ready for deploymen
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## 📞 Support
+## Support
 
 For support and questions, please contact:
 - Email: info@dreamheaven.com
@@ -265,4 +270,4 @@ For support and questions, please contact:
 
 ---
 
-Built with ❤️ for the DreamHeaven real estate platform. 
+Built with love for the DreamHeaven real estate platform. 
