@@ -18,29 +18,42 @@ This allows you to easily switch between different backend environments.
 
 export const searchProperties = async (searchData) => {
   try {
+    console.log('API - Raw search data received:', searchData);
+    console.log('API - Raw search data type:', typeof searchData);
+    console.log('API - Raw search data keys:', Object.keys(searchData));
+    
     // Clean up the search data for POST request
     const cleanSearchData = { ...searchData };
     
-    // Remove empty values
+    // Remove empty values and unwanted values
     Object.keys(cleanSearchData).forEach(key => {
       if (!cleanSearchData[key] || cleanSearchData[key] === 'Any' || cleanSearchData[key] === 'Both') {
         delete cleanSearchData[key];
       }
     });
 
-    const response = await fetch(`${API_BASE_URL}/search`, {
+    console.log('API - Cleaned search data being sent to backend:', cleanSearchData);
+    console.log('API - Cleaned search data type:', typeof cleanSearchData);
+    console.log('API - Cleaned search data keys:', Object.keys(cleanSearchData));
+    console.log('API - Making request to:', `${API_BASE_URL}/search/`);
+
+    const response = await fetch(`${API_BASE_URL}/search/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(searchData)
+      body: JSON.stringify(cleanSearchData)
     });
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    return await response.json();
+    const result = await response.json();
+    console.log('API - Backend response received:', result);
+    console.log('API - Backend response type:', typeof result);
+    console.log('API - Backend response keys:', Object.keys(result));
+    return result;
   } catch (error) {
     console.error('Error searching properties:', error);
     throw error;

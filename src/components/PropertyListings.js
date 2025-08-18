@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Bed, Bath, Ruler, Car, MapPin } from 'lucide-react';
 
 const PropertyCard = ({ property }) => {
@@ -176,13 +176,25 @@ const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, o
     status: '',
     ...initialFilters
   });
+  const hasInitialized = useRef(false);
+  const filtersRef = useRef(filters);
+  const lastSearchResultsRef = useRef(null);
 
-  const fetchProperties = async (pageNum = 1, append = false) => {
+  // Update filtersRef whenever filters change
+  useEffect(() => {
+    filtersRef.current = filters;
+  }, [filters]);
+
+  const fetchProperties = useCallback(async (pageNum = 1, append = false) => {
+    console.log(`PropertyListings: fetchProperties called with pageNum=${pageNum}, append=${append}`);
     setLoading(true);
     setError(null);
     
     try {
-      // Convert filters to query parameters for GET request (same as SearchSection)
+      // Use current filters from ref to avoid dependency issues
+      const currentFilters = filtersRef.current;
+      
+      // Convert filters to query parameters for GET request
       const queryParams = new URLSearchParams();
       
       // Add pagination
@@ -190,28 +202,28 @@ const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, o
       queryParams.append('limit', '20');
       
       // Add filters to query parameters
-      if (filters.location) {
-        // Extract city and state from location (same logic as SearchSection)
-        const locationParts = filters.location.split(', ');
+      if (currentFilters.location) {
+        // Extract city and state from location
+        const locationParts = currentFilters.location.split(', ');
         if (locationParts.length >= 2) {
           queryParams.append('city', locationParts[0]);
           queryParams.append('state', locationParts[1]);
         } else {
-          queryParams.append('q', filters.location);
+          queryParams.append('q', currentFilters.location);
         }
       }
       
-      if (filters.status && filters.status !== 'Both') {
-        queryParams.append('property_type', filters.status);
+      if (currentFilters.status && currentFilters.status !== 'Both') {
+        queryParams.append('property_type', currentFilters.status);
       }
       
-      if (filters.bedrooms && filters.bedrooms !== 'Any') {
-        const minBeds = filters.bedrooms.toString().replace('+', '');
+      if (currentFilters.bedrooms && currentFilters.bedrooms !== 'Any') {
+        const minBeds = currentFilters.bedrooms.toString().replace('+', '');
         queryParams.append('min_bedrooms', minBeds);
       }
       
-      if (filters.bathrooms && filters.bathrooms !== 'Any') {
-        const minBaths = filters.bathrooms.toString().replace('+', '');
+      if (currentFilters.bathrooms && currentFilters.bathrooms !== 'Any') {
+        const minBaths = currentFilters.bathrooms.toString().replace('+', '');
         queryParams.append('min_bathrooms', minBaths);
       }
 
@@ -222,17 +234,17 @@ const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, o
       };
 
       // Add filters to payload
-      if (filters.location) {
-        payload.location = filters.location;
+      if (currentFilters.location) {
+        payload.location = currentFilters.location;
       }
-      if (filters.bedrooms) {
-        payload.bed = filters.bedrooms + '+';
+      if (currentFilters.bedrooms) {
+        payload.bed = currentFilters.bedrooms + '+';
       }
-      if (filters.bathrooms) {
-        payload.bath = filters.bathrooms + '+';
+      if (currentFilters.bathrooms) {
+        payload.bath = currentFilters.bathrooms + '+';
       }
-      if (filters.status) {
-        payload.rent = filters.status;
+      if (currentFilters.status) {
+        payload.rent = currentFilters.status;
       }
       
       // Use proxy configuration to avoid CORS issues
@@ -301,12 +313,24 @@ const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, o
     } finally {
       setLoading(false);
     }
-  };
+  }, []); // Remove filters dependency to prevent infinite re-renders
 
-  // Handle search results from parent component
+  // Consolidated useEffect to handle all data fetching scenarios
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
+    // If we have search results from parent component, use those
     if (searchResults) {
-      // Handle search results from SearchSection
+      console.log('PropertyListings: Processing search results from parent');
+      
+      // Check if we already processed these exact search results
+      if (lastSearchResultsRef.current === searchResults) {
+        console.log('PropertyListings: Skipping update - same search results already processed');
+        return;
+      }
+      
+      // Store the current search results to prevent reprocessing
+      lastSearchResultsRef.current = searchResults;
+      
       let listings = [];
       
       if (searchResults?.properties && Array.isArray(searchResults.properties)) {
@@ -324,35 +348,37 @@ const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, o
       setProperties(listings);
       setHasMore(false); // Don't show load more for search results
       setError(null);
+      return; // Exit early, don't fetch from API
     } else {
-      // No search results, fetch initial properties
-      fetchProperties(1, false);
+      // Clear search results ref when no search results
+      lastSearchResultsRef.current = null;
     }
-  }, [searchResults]);
-
-  useEffect(() => {
-    if (!searchResults) {
-      fetchProperties(1, false);
-    }
-  }, []); // Fetch on initial load only
-
-  // Handle external filter changes
-  useEffect(() => {
-    if (Object.keys(initialFilters).length > 0) {
+    
+    // If we have initial filters, apply them (only once)
+    if (Object.keys(initialFilters).length > 0 && !hasInitialized.current) {
+      console.log('PropertyListings: Applying initial filters');
       setFilters(prev => ({ ...prev, ...initialFilters }));
+    }
+    
+    // Only fetch from API once on initial load if we don't have search results
+    if (!hasInitialized.current && !searchResults && Object.keys(searchFilters).length === 0) {
+      console.log('PropertyListings: Fetching initial properties from API (first time only)');
+      hasInitialized.current = true;
       fetchProperties(1, false);
     }
-  }, [initialFilters]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchResults, initialFilters]); // Removed searchFilters to prevent infinite loop
 
   const handleLoadMore = () => {
     fetchProperties(page + 1, true);
   };
 
   // Function to trigger search when filters change (can be called from parent component)
-  const searchWithFilters = (newFilters) => {
-    setFilters(newFilters);
-    fetchProperties(1, false);
-  };
+  // Note: This function is no longer used since search logic is handled by CombinedSearchSection
+  // const searchWithFilters = (newFilters) => {
+  //   setFilters(newFilters);
+  //   fetchProperties(1, false);
+  // };
 
   return (
     <section id="property-listings" className="py-20 bg-gray-50">

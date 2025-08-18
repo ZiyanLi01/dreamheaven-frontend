@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import Hero from './components/Hero';
-import SearchSection from './components/SearchSection';
-import AiSearchSection from './components/AiSearchSection';
+import CombinedSearchSection from './components/CombinedSearchSection';
 import PropertyListings from './components/PropertyListings';
 import Testimonials from './components/Testimonials';
 import Footer from './components/Footer';
@@ -12,6 +11,9 @@ function App() {
   const [searchResults, setSearchResults] = useState(null);
   const [searchFilters, setSearchFilters] = useState({});
   const [isSearching, setIsSearching] = useState(false);
+  const [showAiResults, setShowAiResults] = useState(false);
+  
+
   
   // Authentication state
   const [user, setUser] = useState(null);
@@ -24,23 +26,18 @@ function App() {
       // Import the searchProperties function
       const { searchProperties } = await import('./services/api');
       
-      // Filter out empty values
-      const searchPayload = { ...searchData };
-      Object.keys(searchPayload).forEach(key => {
-        if (!searchPayload[key]) {
-          delete searchPayload[key];
-        }
-      });
-
-      console.log('Search data to send to backend:', searchPayload);
+      console.log('Search data received from component:', searchData);
+      console.log('Search data type:', typeof searchData);
+      console.log('Search data keys:', Object.keys(searchData));
       
-      // Call the API service
-      const results = await searchProperties(searchPayload);
+      // Call the API service (data processing is handled in the API service)
+      const results = await searchProperties(searchData);
       console.log('Search results:', results);
       
       // Update state with results
       setSearchResults(results);
-      setSearchFilters(searchPayload);
+      setSearchFilters(searchData);
+      setShowAiResults(false); // Hide AI results when using regular search
     } catch (error) {
       console.error('Error searching properties:', error);
       setSearchResults(null);
@@ -52,6 +49,7 @@ function App() {
   const clearSearch = () => {
     setSearchResults(null);
     setSearchFilters({});
+    setShowAiResults(false);
   };
 
   // Authentication functions
@@ -142,17 +140,27 @@ function App() {
         onLogout={handleLogout}
       />
       <Hero />
-      <AiSearchSection 
+      <CombinedSearchSection 
         user={user}
         onLoginRequired={() => openLoginModal('login')}
         onSearchResults={handleSearch}
+        onFilterResults={setSearchResults}
+        isSearching={isSearching}
+        setIsSearching={setIsSearching}
+        onAiResultsChange={setShowAiResults}
       />
-      <SearchSection onSearch={handleSearch} isSearching={isSearching} />
-      <PropertyListings 
-        searchResults={searchResults}
-        searchFilters={searchFilters}
-        onClearSearch={clearSearch}
-      />
+
+      {!showAiResults ? (
+        <PropertyListings 
+          searchResults={searchResults}
+          searchFilters={searchFilters}
+          onClearSearch={clearSearch}
+        />
+      ) : (
+        <div className="py-8 text-center text-gray-500">
+          <p>AI search results are being displayed above</p>
+        </div>
+      )}
       <Testimonials />
       <Footer />
       
