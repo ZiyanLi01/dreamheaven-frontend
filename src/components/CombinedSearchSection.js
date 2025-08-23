@@ -344,8 +344,16 @@ const CombinedSearchSection = ({ user, onLoginRequired, onSearchResults, onFilte
     try {
       console.log('AI Search query:', searchData.searchQuery);
       
+      // Validate the query before sending
+      const cleanQuery = searchData.searchQuery.trim();
+      if (!cleanQuery || cleanQuery === '') {
+        throw new Error('Please enter a search query');
+      }
+      
+      console.log('Clean AI Search query:', cleanQuery);
+      
       // Call the AI search API
-      const results = await aiSearchProperties(searchData.searchQuery);
+      const results = await aiSearchProperties(cleanQuery);
       console.log('AI Search results:', results);
       
       // Store results locally for display
@@ -379,13 +387,42 @@ const CombinedSearchSection = ({ user, onLoginRequired, onSearchResults, onFilte
     try {
       // Create combined query with filters
       const filterText = [];
-      if (searchData.location) filterText.push(`in ${searchData.location}`);
-      if (searchData.rent) filterText.push(`for ${searchData.rent.toLowerCase()}`);
-      if (searchData.bed) filterText.push(`with ${searchData.bed} bedrooms`);
-      if (searchData.bath) filterText.push(`with ${searchData.bath} bathrooms`);
+      if (searchData.location && searchData.location.trim()) {
+        filterText.push(`in ${searchData.location.trim()}`);
+      }
+      if (searchData.rent && searchData.rent.trim() && searchData.rent !== 'Both') {
+        // Clean up the rent/sale text to avoid redundancy
+        const rentText = searchData.rent.toLowerCase().trim();
+        if (rentText === 'for rent') {
+          filterText.push('for rent');
+        } else if (rentText === 'for sale') {
+          filterText.push('for sale');
+        } else {
+          filterText.push(rentText);
+        }
+      }
+      if (searchData.bed && searchData.bed.trim() && searchData.bed !== 'Any') {
+        filterText.push(`with ${searchData.bed.trim()} bedrooms`);
+      }
+      if (searchData.bath && searchData.bath.trim() && searchData.bath !== 'Any') {
+        filterText.push(`with ${searchData.bath.trim()} bathrooms`);
+      }
       
       const combinedQuery = `${searchData.searchQuery} ${filterText.join(' ')}`.trim();
       console.log('Combined search query:', combinedQuery);
+      console.log('Filter text array:', filterText);
+      console.log('Search data state:', {
+        location: searchData.location,
+        rent: searchData.rent,
+        bed: searchData.bed,
+        bath: searchData.bath,
+        searchQuery: searchData.searchQuery
+      });
+      
+      // Ensure we have a valid query
+      if (!combinedQuery || combinedQuery.trim() === '') {
+        throw new Error('Invalid search query generated');
+      }
       
       // Call the AI search API with combined query
       const results = await aiSearchProperties(combinedQuery);
@@ -703,15 +740,15 @@ const CombinedSearchSection = ({ user, onLoginRequired, onSearchResults, onFilte
                   </button>
                 </div>
                 
-                {(aiSearchResults.results || aiSearchResults.items) && (aiSearchResults.results || aiSearchResults.items).length > 0 ? (
+                {(aiSearchResults.results || aiSearchResults.items || aiSearchResults.listings) && (aiSearchResults.results || aiSearchResults.items || aiSearchResults.listings).length > 0 ? (
                   <div>
                     <p className="text-sm text-gray-600 mb-4">
-                      Found {(aiSearchResults.results || aiSearchResults.items).length} properties for: "{aiSearchResults.query}"
+                      Found {(aiSearchResults.results || aiSearchResults.items || aiSearchResults.listings).length} properties for: "{aiSearchResults.query}"
                     </p>
                     
                     {/* 10 rows, 2 columns each */}
                     <div className="space-y-6">
-                      {(aiSearchResults.results || aiSearchResults.items).slice(0, 10).map((property, index) => (
+                      {(aiSearchResults.results || aiSearchResults.items || aiSearchResults.listings).slice(0, 10).map((property, index) => (
                         <div key={property.id || index} className="flex gap-6">
                           {/* Left Column - Listing Card (same format as home page) */}
                           <div className="flex-1">

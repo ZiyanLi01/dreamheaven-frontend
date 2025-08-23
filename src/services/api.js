@@ -107,6 +107,8 @@ export const aiSearchProperties = async (query) => {
     console.log('AI Search - Making request to:', `${AI_BASE_URL}/ai-search`);
     console.log('AI Search - Auth headers:', authHeaders);
     console.log('AI Search - Query:', query);
+    console.log('AI Search - Query type:', typeof query);
+    console.log('AI Search - Query length:', query ? query.length : 'null/undefined');
     
     const response = await fetch(`${AI_BASE_URL}/ai-search`, {
       method: 'POST',
@@ -114,7 +116,18 @@ export const aiSearchProperties = async (query) => {
         'Content-Type': 'application/json',
         ...authHeaders
       },
-      body: JSON.stringify({ query })
+      body: JSON.stringify({ 
+        query,
+        // Add default values to prevent null comparison errors
+        page: 1,
+        limit: 20,
+        // Add explicit null values for common filter parameters
+        min_price: null,
+        max_price: null,
+        min_bedrooms: null,
+        min_bathrooms: null,
+        property_type: null
+      })
     });
 
     console.log('AI Search - Response status:', response.status);
@@ -128,6 +141,12 @@ export const aiSearchProperties = async (query) => {
 
     const result = await response.json();
     console.log('AI Search - Success response:', result);
+    console.log('AI Search - Response type:', typeof result);
+    console.log('AI Search - Response keys:', Object.keys(result));
+    console.log('AI Search - Has results:', !!result.results);
+    console.log('AI Search - Has items:', !!result.items);
+    console.log('AI Search - Has listings:', !!result.listings);
+    console.log('AI Search - Results length:', result.results?.length || result.items?.length || result.listings?.length || 'N/A');
     return result;
   } catch (error) {
     console.error('Error performing AI search:', error);

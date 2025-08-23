@@ -181,7 +181,7 @@ The frontend integrates with two backend services:
 - **Property Listings**: `/listings`
 
 #### AI/RAG Backend (Port 8001)
-- **AI Search**: `/ai-search`
+- **AI Search**: `/improved-search`
 
 ### API Service Functions
 
