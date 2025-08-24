@@ -476,30 +476,36 @@ const CombinedSearchSection = ({ user, onLoginRequired, onSearchResults, onFilte
   const parseReasonToTags = (reasonText, matchDetails) => {
     if (!reasonText && !matchDetails) return { matches: [], mismatches: [] };
     
-    const matches = [];
+    let matches = [];
     const mismatches = [];
     
     // If matchDetails is available, use structured data
     if (matchDetails) {
-      // Process structured matches (priority over semantic)
+      // Process both structured and semantic matches, deduplicating identical elements
+      const allMatches = new Set(); // Use Set to automatically deduplicate
+      
+      // Process structured matches
       if (matchDetails.structured && Array.isArray(matchDetails.structured) && matchDetails.structured.length > 0) {
         matchDetails.structured.forEach(item => {
           if (item.includes('✓')) {
             const cleanPart = item.replace('✓', '').trim();
-            if (cleanPart) matches.push(cleanPart);
+            if (cleanPart) allMatches.add(cleanPart);
           }
         });
-      } else {
-        // Only show semantic if structured is null/empty
-        if (matchDetails.semantic && Array.isArray(matchDetails.semantic)) {
-          matchDetails.semantic.forEach(item => {
-            if (item.includes('✓')) {
-              const cleanPart = item.replace('✓', '').trim();
-              if (cleanPart) matches.push(cleanPart);
-            }
-          });
-        }
       }
+      
+      // Process semantic matches
+      if (matchDetails.semantic && Array.isArray(matchDetails.semantic)) {
+        matchDetails.semantic.forEach(item => {
+          if (item.includes('✓')) {
+            const cleanPart = item.replace('✓', '').trim();
+            if (cleanPart) allMatches.add(cleanPart);
+          }
+        });
+      }
+      
+      // Convert Set back to array
+      matches = Array.from(allMatches);
       
       // Always process soft_preferences if not null
       if (matchDetails.soft_preferences && Array.isArray(matchDetails.soft_preferences)) {
