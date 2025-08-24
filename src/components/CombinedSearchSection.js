@@ -481,27 +481,27 @@ const CombinedSearchSection = ({ user, onLoginRequired, onSearchResults, onFilte
     
     // If matchDetails is available, use structured data
     if (matchDetails) {
-      // Process semantic matches
-      if (matchDetails.semantic && Array.isArray(matchDetails.semantic)) {
-        matchDetails.semantic.forEach(item => {
-          if (item.includes('✓')) {
-            const cleanPart = item.replace('✓', '').trim();
-            if (cleanPart) matches.push(cleanPart);
-          }
-        });
-      }
-      
-      // Process structured matches
-      if (matchDetails.structured && Array.isArray(matchDetails.structured)) {
+      // Process structured matches (priority over semantic)
+      if (matchDetails.structured && Array.isArray(matchDetails.structured) && matchDetails.structured.length > 0) {
         matchDetails.structured.forEach(item => {
           if (item.includes('✓')) {
             const cleanPart = item.replace('✓', '').trim();
             if (cleanPart) matches.push(cleanPart);
           }
         });
+      } else {
+        // Only show semantic if structured is null/empty
+        if (matchDetails.semantic && Array.isArray(matchDetails.semantic)) {
+          matchDetails.semantic.forEach(item => {
+            if (item.includes('✓')) {
+              const cleanPart = item.replace('✓', '').trim();
+              if (cleanPart) matches.push(cleanPart);
+            }
+          });
+        }
       }
       
-      // Process soft_preferences matches
+      // Always process soft_preferences if not null
       if (matchDetails.soft_preferences && Array.isArray(matchDetails.soft_preferences)) {
         matchDetails.soft_preferences.forEach(item => {
           if (item.includes('✓')) {
@@ -511,7 +511,7 @@ const CombinedSearchSection = ({ user, onLoginRequired, onSearchResults, onFilte
         });
       }
       
-      // Process missing items (issues)
+      // Always process missing items (issues) if not null
       if (matchDetails.missing && Array.isArray(matchDetails.missing)) {
         matchDetails.missing.forEach(item => {
           if (item.includes('✗')) {
