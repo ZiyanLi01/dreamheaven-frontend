@@ -137,8 +137,8 @@ const PropertyCard = ({ property }) => {
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
-      {/* Property Image */}
-      <div className="relative h-48 bg-gradient-to-br from-blue-100 to-blue-200">
+      {/* Property Image - 16:9 ratio */}
+      <div className="relative aspect-video bg-gradient-to-br from-blue-100 to-blue-200">
         {getImageUrl() && (
           <img 
             src={getImageUrl()} 
@@ -156,7 +156,7 @@ const PropertyCard = ({ property }) => {
       </div>
 
       {/* Property Details */}
-      <div className="p-4 space-y-4">
+      <div className="p-4 space-y-3">
         {/* Address and Location */}
         <div>
           <h3 className="font-bold text-dream-gray-800 text-lg mb-1 truncate">
@@ -168,7 +168,7 @@ const PropertyCard = ({ property }) => {
           </div>
         </div>
 
-        {/* Key Details */}
+        {/* Key Details - 2x2 grid layout */}
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div className="flex items-center space-x-2">
             <Ruler className="w-4 h-4 text-dream-gray-400" />
@@ -225,9 +225,11 @@ const CombinedSearchSection = ({ user, onLoginRequired, onSearchResults, onFilte
   const [showEmptyQueryModal, setShowEmptyQueryModal] = useState(false);
   const [showLoginRequiredModal, setShowLoginRequiredModal] = useState(false);
   const [aiSearchResults, setAiSearchResults] = useState(null);
+  const [whatYouNeed, setWhatYouNeed] = useState('');
   const [applyFilter, setApplyFilter] = useState(false);
   const [isFilterSearching, setIsFilterSearching] = useState(false);
   const [isAiSearching, setIsAiSearching] = useState(false);
+  const [expandedReasons, setExpandedReasons] = useState({});
   const searchRef = useRef(null);
 
   // Close dropdowns when clicking outside
@@ -359,6 +361,14 @@ const CombinedSearchSection = ({ user, onLoginRequired, onSearchResults, onFilte
       // Store results locally for display
       setAiSearchResults(results);
       
+      // Set what you need from backend response if available
+      if (results.what_you_need || results.whatYouNeed) {
+        setWhatYouNeed(results.what_you_need || results.whatYouNeed);
+      } else {
+        // Fallback to generated content if backend doesn't provide it
+        setWhatYouNeed(generateWhatYouNeed(cleanQuery));
+      }
+      
             // Notify parent that AI results are being shown
       if (onAiResultsChange) {
         onAiResultsChange(true);
@@ -431,6 +441,14 @@ const CombinedSearchSection = ({ user, onLoginRequired, onSearchResults, onFilte
       // Store results locally for display
       setAiSearchResults(results);
       
+      // Set what you need from backend response if available
+      if (results.what_you_need || results.whatYouNeed) {
+        setWhatYouNeed(results.what_you_need || results.whatYouNeed);
+      } else {
+        // Fallback to generated content if backend doesn't provide it
+        setWhatYouNeed(generateWhatYouNeed(combinedQuery));
+      }
+      
             // Notify parent that AI results are being shown
       if (onAiResultsChange) {
         onAiResultsChange(true);
@@ -454,8 +472,266 @@ const CombinedSearchSection = ({ user, onLoginRequired, onSearchResults, onFilte
     }
   };
 
+    // Helper function to parse match_details into tags
+  const parseReasonToTags = (reasonText, matchDetails) => {
+    if (!reasonText && !matchDetails) return { matches: [], mismatches: [] };
+    
+    const matches = [];
+    const mismatches = [];
+    
+    // If matchDetails is available, use structured data
+    if (matchDetails) {
+      // Process semantic matches
+      if (matchDetails.semantic && Array.isArray(matchDetails.semantic)) {
+        matchDetails.semantic.forEach(item => {
+          if (item.includes('✓')) {
+            const cleanPart = item.replace('✓', '').trim();
+            if (cleanPart) matches.push(cleanPart);
+          }
+        });
+      }
+      
+      // Process structured matches
+      if (matchDetails.structured && Array.isArray(matchDetails.structured)) {
+        matchDetails.structured.forEach(item => {
+          if (item.includes('✓')) {
+            const cleanPart = item.replace('✓', '').trim();
+            if (cleanPart) matches.push(cleanPart);
+          }
+        });
+      }
+      
+      // Process soft_preferences matches
+      if (matchDetails.soft_preferences && Array.isArray(matchDetails.soft_preferences)) {
+        matchDetails.soft_preferences.forEach(item => {
+          if (item.includes('✓')) {
+            const cleanPart = item.replace('✓', '').trim();
+            if (cleanPart) matches.push(cleanPart);
+          }
+        });
+      }
+      
+      // Process missing items (issues)
+      if (matchDetails.missing && Array.isArray(matchDetails.missing)) {
+        matchDetails.missing.forEach(item => {
+          if (item.includes('✗')) {
+            const cleanPart = item.replace('✗', '').trim();
+            if (cleanPart) mismatches.push(cleanPart);
+          }
+        });
+      }
+    } else {
+      // Fallback to text parsing if matchDetails is not available
+      if (reasonText.includes('|')) {
+        // Split by pipe first to separate sections
+        const sections = reasonText.split('|').map(section => section.trim());
+        
+        // Process each section
+        sections.forEach(section => {
+          if (section.includes('requirements:') || section.includes('Requirements:')) {
+            // Extract content after "requirements:" and before any comma
+            const reqMatch = section.match(/(?:requirements:)?\s*✓\s*(.*?)(?=,|$)/i);
+            if (reqMatch && reqMatch[1]) {
+              matches.push(reqMatch[1].trim());
+            }
+          } else if (section.includes('Note:') || section.includes('note:')) {
+            // Extract all ✗ items from the Note section
+            const noteContent = section.replace(/^Note:\s*/i, '').trim(); // Remove "Note:" prefix
+            const noteParts = noteContent.split(',').map(part => part.trim()).filter(part => part);
+            noteParts.forEach(part => {
+              if (part.includes('✗')) {
+                const cleanPart = part.replace('✗', '').trim();
+                if (cleanPart) mismatches.push(cleanPart);
+              }
+            });
+          }
+        });
+      } else {
+        // Fallback: simple comma-based parsing
+        const allParts = reasonText.split(',').map(part => part.trim()).filter(part => part);
+        
+        allParts.forEach(part => {
+          if (part.includes('✓')) {
+            // Extract content after ✓ symbol
+            const cleanPart = part.replace('✓', '').trim();
+            if (cleanPart) matches.push(cleanPart);
+          } else if (part.includes('✗')) {
+            // Extract content after ✗ symbol
+            const cleanPart = part.replace('✗', '').trim();
+            if (cleanPart) mismatches.push(cleanPart);
+          }
+        });
+      }
+    }
+    
+    return { matches, mismatches };
+  };
+
+  // Helper function to format reason text for better display
+  const formatReasonText = (reasonText) => {
+    if (!reasonText) return null;
+    
+    // First, let's clean up the text to ensure headers are on single lines and separate content properly
+    let cleanedText = reasonText
+      .replace(/Matches your requirements:\s*\n/g, 'Matches your requirements:\n')
+      .replace(/Note:\s*\n/g, 'Note:\n')
+      .replace(/\|\s*Note:/g, '\nNote:') // Convert pipe separator to line break for Note
+      .replace(/Matches your requirements:\s*\|/g, 'Matches your requirements:\n') // Convert pipe separator to line break for requirements
+      .replace(/,\s*✗/g, '\n✗') // Convert comma + X mark to line break + X mark
+      .replace(/,\s*✓/g, '\n✓') // Convert comma + checkmark to line break + checkmark
+      .replace(/\s*✗\s*/g, '\n✗ ') // Ensure X marks are on separate lines
+      .replace(/\s*✓\s*/g, '\n✓ '); // Ensure checkmarks are on separate lines
+    
+    const lines = cleanedText.split('\n');
+    const formattedLines = [];
+    
+    lines.forEach((line, index) => {
+      const trimmedLine = line.trim();
+      if (!trimmedLine) return;
+      
+      // Handle "Matches your requirements:" header
+      if (trimmedLine.toLowerCase().includes('matches your requirements:')) {
+        formattedLines.push(
+          <div key={`header-${index}`} className="font-bold text-gray-800 mb-2">
+            {trimmedLine}
+          </div>
+        );
+        return;
+      }
+      
+      // Handle checkmarks (✓) - positive matches
+      if (trimmedLine.includes('✓')) {
+        formattedLines.push(
+          <div key={`check-${index}`} className="flex items-start space-x-2 ml-4">
+            <span className="text-green-600 text-lg">✓</span>
+            <span className="text-gray-700">{trimmedLine.replace('✓', '').trim()}</span>
+          </div>
+        );
+        return;
+      }
+      
+      // Handle "Note:" section header
+      if (trimmedLine.toLowerCase().includes('note:')) {
+        formattedLines.push(
+          <div key={`note-${index}`} className="font-bold text-gray-700 mt-3 mb-1">
+            {trimmedLine}
+          </div>
+        );
+        return;
+      }
+      
+      // Handle X marks (✗) - negative matches/issues
+      if (trimmedLine.includes('✗')) {
+        formattedLines.push(
+          <div key={`x-${index}`} className="flex items-start space-x-2 ml-4">
+            <span className="text-red-500 text-lg">✗</span>
+            <span className="text-gray-600">{trimmedLine.replace('✗', '').trim()}</span>
+          </div>
+        );
+        return;
+      }
+      
+      // Handle regular text
+      if (trimmedLine) {
+        formattedLines.push(
+          <div key={`text-${index}`} className="text-gray-600">
+            {trimmedLine}
+          </div>
+        );
+      }
+    });
+    
+    return formattedLines;
+  };
+
+  // Helper function to generate "What You Need" content based on search query
+  const generateWhatYouNeed = (query) => {
+    const requirements = [];
+    
+    // Extract location requirements
+    if (query.toLowerCase().includes('mission district') || query.toLowerCase().includes('mission')) {
+      requirements.push('• Location: Mission District, San Francisco');
+    } else if (query.toLowerCase().includes('los angeles') || query.toLowerCase().includes('la')) {
+      requirements.push('• Location: Los Angeles, CA');
+    } else if (query.toLowerCase().includes('new york') || query.toLowerCase().includes('nyc')) {
+      requirements.push('• Location: New York, NY');
+    } else if (query.toLowerCase().includes('seattle')) {
+      requirements.push('• Location: Seattle, WA');
+    } else if (query.toLowerCase().includes('austin')) {
+      requirements.push('• Location: Austin, TX');
+    } else if (query.toLowerCase().includes('nashville')) {
+      requirements.push('• Location: Nashville, TN');
+    } else if (query.toLowerCase().includes('portland')) {
+      requirements.push('• Location: Portland, OR');
+    } else if (query.toLowerCase().includes('denver')) {
+      requirements.push('• Location: Denver, CO');
+    }
+    
+    // Extract bedroom requirements
+    if (query.toLowerCase().includes('1-bedroom') || query.toLowerCase().includes('1 bedroom') || query.toLowerCase().includes('studio')) {
+      requirements.push('• Bedrooms: 1 bedroom or studio');
+    } else if (query.toLowerCase().includes('2-bedroom') || query.toLowerCase().includes('2 bedroom')) {
+      requirements.push('• Bedrooms: 2 bedrooms');
+    } else if (query.toLowerCase().includes('3-bedroom') || query.toLowerCase().includes('3 bedroom')) {
+      requirements.push('• Bedrooms: 3 bedrooms');
+    } else if (query.toLowerCase().includes('4-bedroom') || query.toLowerCase().includes('4 bedroom')) {
+      requirements.push('• Bedrooms: 4 bedrooms');
+    }
+    
+    // Extract price requirements
+    if (query.toLowerCase().includes('under $2,500') || query.toLowerCase().includes('under $2500')) {
+      requirements.push('• Budget: Under $2,500 per month');
+    } else if (query.toLowerCase().includes('under $3,000') || query.toLowerCase().includes('under $3000')) {
+      requirements.push('• Budget: Under $3,000 per month');
+    } else if (query.toLowerCase().includes('under $4,000') || query.toLowerCase().includes('under $4000')) {
+      requirements.push('• Budget: Under $4,000 per month');
+    } else if (query.toLowerCase().includes('under $5,000') || query.toLowerCase().includes('under $5000')) {
+      requirements.push('• Budget: Under $5,000 per month');
+    }
+    
+    // Extract property type requirements
+    if (query.toLowerCase().includes('apartment')) {
+      requirements.push('• Property Type: Apartment');
+    } else if (query.toLowerCase().includes('house') || query.toLowerCase().includes('home')) {
+      requirements.push('• Property Type: House');
+    } else if (query.toLowerCase().includes('condo') || query.toLowerCase().includes('condominium')) {
+      requirements.push('• Property Type: Condominium');
+    } else if (query.toLowerCase().includes('townhouse') || query.toLowerCase().includes('town house')) {
+      requirements.push('• Property Type: Townhouse');
+    }
+    
+    // Extract amenity requirements
+    if (query.toLowerCase().includes('modern')) {
+      requirements.push('• Style: Modern design');
+    } else if (query.toLowerCase().includes('bright') || query.toLowerCase().includes('natural light')) {
+      requirements.push('• Features: Bright with natural light');
+    } else if (query.toLowerCase().includes('quiet')) {
+      requirements.push('• Environment: Quiet neighborhood');
+    } else if (query.toLowerCase().includes('near good schools') || query.toLowerCase().includes('good schools')) {
+      requirements.push('• Location: Near good schools');
+    } else if (query.toLowerCase().includes('big yard') || query.toLowerCase().includes('yard')) {
+      requirements.push('• Outdoor Space: Big yard');
+    }
+    
+    // If no specific requirements found, provide a generic summary
+    if (requirements.length === 0) {
+      requirements.push('• Custom search criteria based on your description');
+    }
+    
+    return requirements.join('\n');
+  };
+
+  const toggleReasonExpansion = (propertyId) => {
+    setExpandedReasons(prev => ({
+      ...prev,
+      [propertyId]: !prev[propertyId]
+    }));
+  };
+
   const clearResults = () => {
     setAiSearchResults(null);
+    setWhatYouNeed('');
+    setExpandedReasons({});
     
     // Notify parent that AI results are being hidden
     if (onAiResultsChange) {
@@ -728,6 +1004,44 @@ const CombinedSearchSection = ({ user, onLoginRequired, onSearchResults, onFilte
           {aiSearchResults && (
             <div className="mt-8">
               <div className="border-t border-gray-200 pt-6">
+                {/* What You Need Info Box */}
+                {whatYouNeed && (
+                  <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+                    <div className="space-y-3">
+                      {whatYouNeed.split('\n').map((line, index) => {
+                        const trimmedLine = line.trim();
+                        if (!trimmedLine) return null;
+                        
+                        // Handle section headers
+                        if (trimmedLine.toLowerCase().includes('must have:') || trimmedLine.toLowerCase().includes('nice to have:')) {
+                          return (
+                            <div key={index} className="font-semibold text-blue-800 text-sm uppercase tracking-wide">
+                              {trimmedLine}
+                            </div>
+                          );
+                        }
+                        
+                        // Handle bullet points
+                        if (trimmedLine.startsWith('•')) {
+                          return (
+                            <div key={index} className="flex items-start space-x-2 ml-4">
+                              <span className="text-blue-600 mt-1">•</span>
+                              <span className="text-blue-700 text-sm">{trimmedLine.substring(1).trim()}</span>
+                            </div>
+                          );
+                        }
+                        
+                        // Handle regular text
+                        return (
+                          <div key={index} className="text-blue-700 text-sm">
+                            {trimmedLine}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-gray-800">
                     AI Search Results
@@ -743,7 +1057,7 @@ const CombinedSearchSection = ({ user, onLoginRequired, onSearchResults, onFilte
                 {(aiSearchResults.results || aiSearchResults.items || aiSearchResults.listings) && (aiSearchResults.results || aiSearchResults.items || aiSearchResults.listings).length > 0 ? (
                   <div>
                     <p className="text-sm text-gray-600 mb-4">
-                      Found {(aiSearchResults.results || aiSearchResults.items || aiSearchResults.listings).length} properties for: "{aiSearchResults.query}"
+                      Found {(aiSearchResults.results || aiSearchResults.items || aiSearchResults.listings).length} properties for: "{searchData.searchQuery}"
                     </p>
                     
                     {/* 10 rows, 2 columns each */}
@@ -755,9 +1069,9 @@ const CombinedSearchSection = ({ user, onLoginRequired, onSearchResults, onFilte
                             <PropertyCard property={property} />
                           </div>
                           
-                          {/* Right Column - Similarity Score & Explanation */}
-                          <div className="w-80">
-                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                          {/* Right Column - Recommendation Panel */}
+                          <div className="w-[450px]">
+                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 h-full flex flex-col">
                               {/* Similarity Score Bar */}
                               <div className="mb-4">
                                 <div className="flex items-center justify-between mb-2">
@@ -768,47 +1082,71 @@ const CombinedSearchSection = ({ user, onLoginRequired, onSearchResults, onFilte
                                 </div>
                                 <div className="w-full bg-gray-200 rounded-full h-2">
                                   <div 
-                                    className="bg-dream-blue-600 h-2 rounded-full transition-all duration-300"
+                                    className="bg-gradient-to-r from-green-400 to-blue-500 h-2 rounded-full transition-all duration-300"
                                     style={{ width: `${(property.similarity_score || 0) * 100}%` }}
                                   ></div>
                                 </div>
                               </div>
                               
-                              {/* Explanation Text Box */}
-                              <div>
-                                <h5 className="text-sm font-medium text-gray-700 mb-2">Why We Recommend This Property</h5>
-                                <div className="bg-white border border-gray-300 rounded p-3 min-h-[100px]">
-                                  {property.reason ? (
-                                    <ul className="text-sm text-gray-600 space-y-1">
-                                      {property.reason.split('\n').map((bullet, idx) => (
-                                        bullet.trim() && (
-                                          <li key={idx} className="flex items-start">
-                                            <span className="text-dream-blue-600 mr-2 mt-1">•</span>
-                                            <span>{bullet.trim()}</span>
-                                          </li>
-                                        )
-                                      ))}
-                                    </ul>
-                                  ) : (
-                                    <div className="text-sm text-gray-600">
-                                      <p className="mb-2">This property matches your search criteria based on:</p>
-                                      <ul className="space-y-1">
-                                        <li className="flex items-start">
-                                          <span className="text-dream-blue-600 mr-2 mt-1">•</span>
-                                          <span>Location and neighborhood preferences</span>
-                                        </li>
-                                        <li className="flex items-start">
-                                          <span className="text-dream-blue-600 mr-2 mt-1">•</span>
-                                          <span>Property features and amenities</span>
-                                        </li>
-                                        <li className="flex items-start">
-                                          <span className="text-dream-blue-600 mr-2 mt-1">•</span>
-                                          <span>Price range and value considerations</span>
-                                        </li>
-                                      </ul>
-                                    </div>
-                                  )}
+                              {/* Recommendation Tags */}
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between mb-3">
+                                  <h5 className="text-base font-medium text-gray-700">Recommendation</h5>
+                                  <button
+                                    onClick={() => toggleReasonExpansion(property.id || index)}
+                                    className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded transition-colors"
+                                  >
+                                    Why?
+                                  </button>
                                 </div>
+                                
+                                {/* Tags */}
+                                <div className="space-y-4">
+                                  {(() => {
+                                    const { matches, mismatches } = parseReasonToTags(property.reason, property.match_details);
+                                    return (
+                                      <>
+                                        {/* Matched Criteria - Green Tags */}
+                                        {matches.length > 0 && (
+                                          <div>
+                                            <div className="text-base font-medium text-gray-700 mb-4">✓ Matches:</div>
+                                            <div className="space-y-1">
+                                              {matches.map((match, idx) => (
+                                                <div key={idx} className="text-base font-medium text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2 break-words whitespace-normal overflow-visible">
+                                                  <span className="whitespace-normal">{match}</span>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+                                        
+                                        {/* Mismatched Criteria - Red Tags */}
+                                        {mismatches.length > 0 && (
+                                          <div>
+                                            <div className="text-base font-medium text-gray-700 mb-3">✗ Issues:</div>
+                                            <div className="space-y-4">
+                                              {mismatches.map((mismatch, idx) => (
+                                                <div key={idx} className="text-base font-medium text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2 break-words whitespace-normal overflow-visible">
+                                                  <span className="whitespace-normal">{mismatch}</span>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+                                      </>
+                                    );
+                                  })()}
+                                </div>
+                                
+                                {/* Expanded Details */}
+                                {expandedReasons[property.id || index] && (
+                                  <div className="mt-4 p-3 bg-white border border-gray-300 rounded">
+                                    <h6 className="text-xs font-medium text-gray-700 mb-2">Detailed Analysis</h6>
+                                    <div className="text-xs text-gray-600 space-y-2">
+                                      {formatReasonText(property.reason)}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
