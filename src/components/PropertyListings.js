@@ -172,9 +172,9 @@ const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, o
   const [error, setError] = useState(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
   const [showPropertyModal, setShowPropertyModal] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState(null);
-  const [displayCount, setDisplayCount] = useState(9); // Start with 9 properties (3 rows)
   const [filters, setFilters] = useState({
     location: '',
     bedrooms: '',
@@ -205,43 +205,10 @@ const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, o
       // Use current filters from ref to avoid dependency issues
       const currentFilters = filtersRef.current;
       
-      // Convert filters to query parameters for GET request
-      const queryParams = new URLSearchParams();
-      
-      // Add pagination - use multiples of 3 for complete rows
-      queryParams.append('page', pageNum.toString());
-      queryParams.append('limit', '21');
-      
-      // Add filters to query parameters
-      if (currentFilters.location) {
-        // Extract city and state from location
-        const locationParts = currentFilters.location.split(', ');
-        if (locationParts.length >= 2) {
-          queryParams.append('city', locationParts[0]);
-          queryParams.append('state', locationParts[1]);
-        } else {
-          queryParams.append('q', currentFilters.location);
-        }
-      }
-      
-      if (currentFilters.status && currentFilters.status !== 'Both') {
-        queryParams.append('property_type', currentFilters.status);
-      }
-      
-      if (currentFilters.bedrooms && currentFilters.bedrooms !== 'Any') {
-        const minBeds = currentFilters.bedrooms.toString().replace('+', '');
-        queryParams.append('min_bedrooms', minBeds);
-      }
-      
-      if (currentFilters.bathrooms && currentFilters.bathrooms !== 'Any') {
-        const minBaths = currentFilters.bathrooms.toString().replace('+', '');
-        queryParams.append('min_bathrooms', minBaths);
-      }
-
-      // Use the correct backend endpoint - POST /api/search
+      // Use the correct backend endpoint - POST /search
       const payload = {
         page: pageNum,
-        limit: 10 // Show 9 properties (3 rows of 3) + 1 extra to check if more exist
+        limit: 20 // Backend now returns 20 listings per page
       };
 
       // Add filters to payload
@@ -299,22 +266,21 @@ const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, o
         listings = data.results;
       }
       
+      // Get total count and has_more from API response
+      const total = data?.total || 0;
       const hasMore = data?.has_more || false;
       
       console.log('Total listings found:', listings.length);
-      console.log('First listing:', listings[0]);
-      console.log('First listing keys:', Object.keys(listings[0] || {}));
+      console.log('Total count from API:', total);
+      console.log('Has more:', hasMore);
       
       if (append) {
         setProperties(prev => [...prev, ...listings]);
-        // Increase display count for new properties
-        setDisplayCount(prev => prev + listings.length);
       } else {
         setProperties(listings);
-        // Reset display count to initial value
-        setDisplayCount(9);
       }
       
+      setTotalCount(total);
       setHasMore(hasMore);
       setPage(pageNum);
     } catch (err) {
@@ -323,6 +289,7 @@ const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, o
       // Set empty arrays on error to prevent undefined errors
       if (!append) {
         setProperties([]);
+        setTotalCount(0);
       }
       setHasMore(false);
     } finally {
@@ -361,8 +328,10 @@ const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, o
       }
       
       setProperties(listings);
-      setDisplayCount(9); // Reset to show first 9 properties
-      setHasMore(false); // Don't show load more for search results
+      // Use total from search results if available, otherwise use listings length
+      setTotalCount(searchResults.total || listings.length);
+      // Use has_more from search results if available
+      setHasMore(searchResults.has_more || false);
       setError(null);
       return; // Exit early, don't fetch from API
     } else {
@@ -386,15 +355,24 @@ const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, o
   }, [searchResults, initialFilters]); // Removed searchFilters to prevent infinite loop
 
   const handleLoadMore = () => {
-    fetchProperties(page + 1, true);
+    if (searchResults && searchResults.has_more) {
+      // For search results with pagination, we need to call the parent to load more
+      // This would require updating the parent component to handle pagination
+      console.log('Load more for search results - pagination not yet implemented');
+    } else {
+      // For regular API calls
+      fetchProperties(page + 1, true);
+    }
   };
 
-  // Function to trigger search when filters change (can be called from parent component)
-  // Note: This function is no longer used since search logic is handled by CombinedSearchSection
-  // const searchWithFilters = (newFilters) => {
-  //   setFilters(newFilters);
-  //   fetchProperties(1, false);
-  // };
+  // Calculate how many properties to display (always in multiples of 3)
+  const getDisplayCount = () => {
+    const currentCount = properties.length;
+    // Round down to nearest multiple of 3
+    return Math.floor(currentCount / 3) * 3;
+  };
+
+  const displayCount = getDisplayCount();
 
   return (
     <section id="property-listings" className="py-20 bg-gray-50">
@@ -404,10 +382,14 @@ const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, o
           <h2 className="text-3xl lg:text-4xl font-bold text-dream-gray-800">
             {searchResults ? 'Search Results' : 'We Bring Dream Homes To Reality'}
           </h2>
-          {searchResults && (
+          {searchResults ? (
             <div className="mt-4">
               <p className="text-dream-gray-600">
-                Found {properties.length} properties
+                {searchResults.total ? (
+                  `We found ${displayCount} out of ${searchResults.total} listings`
+                ) : (
+                  `Found ${properties.length} properties`
+                )}
                 {Object.keys(searchFilters).length > 0 && (
                   <span> matching your criteria</span>
                 )}
@@ -419,10 +401,21 @@ const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, o
                 Clear search and show all properties
               </button>
             </div>
+          ) : (
+            // Only show pagination info if there are filters applied (not on home page)
+            Object.keys(searchFilters).length > 0 && (
+              <div className="mt-4">
+                <p className="text-dream-gray-600">
+                  {totalCount > 0 ? (
+                    `We found ${displayCount} out of ${totalCount} listings`
+                  ) : (
+                    'Loading properties...'
+                  )}
+                </p>
+              </div>
+            )
           )}
         </div>
-
-
 
         {/* Loading State */}
         {loading && (!properties || properties.length === 0) && (
@@ -454,19 +447,11 @@ const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, o
               ))}
             </div>
             
-            {/* Load More Button */}
-            {(hasMore || displayCount < properties.length) && (
+            {/* Load More Button - Show for filter results with pagination */}
+            {(hasMore || (searchResults && searchResults.has_more)) && Object.keys(searchFilters).length > 0 && (
               <div className="text-center mt-8">
                 <button
-                  onClick={() => {
-                    if (displayCount < properties.length) {
-                      // Show more from existing properties
-                      setDisplayCount(prev => Math.min(prev + 9, properties.length));
-                    } else {
-                      // Fetch more from API
-                      handleLoadMore();
-                    }
-                  }}
+                  onClick={handleLoadMore}
                   disabled={loading}
                   className="bg-dream-blue-600 text-white px-8 py-3 rounded-md hover:bg-dream-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >

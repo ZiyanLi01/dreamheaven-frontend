@@ -8,11 +8,16 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
           {/* Logo */}
           <div className="flex items-center">
-            <img 
-              src="/logo3.png?v=1" 
-              alt="Dream Haven" 
-              className="h-32 w-auto"
-            />
+            <button 
+              onClick={() => window.location.href = '/'}
+              className="hover:opacity-80 transition-opacity duration-200"
+            >
+              <img 
+                src="/logo3.png?v=1" 
+                alt="Dream Haven" 
+                className="h-32 w-auto cursor-pointer"
+              />
+            </button>
           </div>
 
           {/* Contact Information */}
@@ -25,7 +30,7 @@ const Footer = () => {
               </div>
               <div className="flex items-center space-x-3">
                 <Mail className="w-5 h-5 text-blue-300" />
-                <span className="text-blue-100">info@dreamhaven.com</span>
+                <span className="text-blue-100">info@nestvector.com</span>
               </div>
             </div>
           </div>

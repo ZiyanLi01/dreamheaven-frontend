@@ -236,7 +236,9 @@ const CombinedSearchSection = React.forwardRef(({ user, onLoginRequired, onSearc
   const [isAiSearching, setIsAiSearching] = useState(false);
   const [expandedReasons, setExpandedReasons] = useState({});
   const [isHighlighted, setIsHighlighted] = useState(false);
+  const [aiSearchPage, setAiSearchPage] = useState(1);
   const searchRef = useRef(null);
+  const isFilterSearchingRef = useRef(false);
 
   // Expose handleTryAiSearch function to parent component
   useImperativeHandle(ref, () => ({
@@ -273,6 +275,12 @@ const CombinedSearchSection = React.forwardRef(({ user, onLoginRequired, onSearc
   // Note: handleSearch function removed - now using handleFilterOnly and handleAiSearchOnly
 
   const handleFilterOnly = async () => {
+    // Prevent multiple simultaneous calls using ref (immediate check)
+    if (isFilterSearchingRef.current) {
+      console.log('Filter search already in progress, skipping...');
+      return;
+    }
+    
     // This is for the "Filter" button - only traditional filtering
     const hasFilters = searchData.location || searchData.rent || searchData.bed || searchData.bath;
     
@@ -308,6 +316,14 @@ const CombinedSearchSection = React.forwardRef(({ user, onLoginRequired, onSearc
   };
 
   const handleFilterSearch = async () => {
+    // Prevent multiple simultaneous calls using ref (immediate check)
+    if (isFilterSearchingRef.current) {
+      console.log('Filter search already in progress, skipping...');
+      return;
+    }
+    
+    // Set ref immediately to prevent multiple calls
+    isFilterSearchingRef.current = true;
     setIsFilterSearching(true);
     try {
       // Prepare search payload (data cleaning is handled in the API service)
@@ -345,6 +361,7 @@ const CombinedSearchSection = React.forwardRef(({ user, onLoginRequired, onSearc
       alert(`Search failed: ${error.message}`);
     } finally {
       setIsFilterSearching(false);
+      isFilterSearchingRef.current = false;
     }
   };
 
@@ -767,6 +784,7 @@ const CombinedSearchSection = React.forwardRef(({ user, onLoginRequired, onSearc
     setAiSearchResults(null);
     setWhatYouNeed('');
     setExpandedReasons({});
+    setAiSearchPage(1);
     
     // Notify parent that AI results are being hidden
     if (onAiResultsChange) {
@@ -776,6 +794,14 @@ const CombinedSearchSection = React.forwardRef(({ user, onLoginRequired, onSearc
     if (onFilterResults) {
       onFilterResults(null);
     }
+  };
+
+  const nextPage = () => {
+    setAiSearchPage(prev => prev + 1);
+  };
+
+  const prevPage = () => {
+    setAiSearchPage(prev => Math.max(1, prev - 1));
   };
 
   return (
@@ -806,7 +832,7 @@ const CombinedSearchSection = React.forwardRef(({ user, onLoginRequired, onSearc
                       onChange={(e) => handleInputChange('locationSearch', e.target.value)}
                     />
                     <div className="mt-2 space-y-1">
-                      {['Los Angeles, CA', 'San Francisco, CA', 'New York, NY', 'Seattle, WA', 'Austin, TX', 'Nashville, TN', 'Portland, OR', 'Denver, CO'].map((loc) => (
+                      {['San Francisco, CA'].map((loc) => (
                         <button
                           key={loc}
                           className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded"
@@ -997,7 +1023,7 @@ const CombinedSearchSection = React.forwardRef(({ user, onLoginRequired, onSearc
               placeholder="Describe your dream home... e.g., 'Modern house with big yard, near good schools, bright & quiet'"
               className={`w-full px-4 py-3 pr-24 text-base border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-dream-blue-500 focus:border-transparent transition-all duration-200 resize-none ${
                 isHighlighted 
-                  ? 'border-blue-400 bg-blue-50 shadow-lg shadow-blue-200 ring-4 ring-blue-200' 
+                  ? 'border-green-400 bg-green-50 shadow-lg shadow-green-200 ring-4 ring-green-200' 
                   : 'border-gray-200 bg-blue-50'
               }`}
               value={searchData.searchQuery}
@@ -1095,13 +1121,37 @@ const CombinedSearchSection = React.forwardRef(({ user, onLoginRequired, onSearc
                 
                 {(aiSearchResults.results || aiSearchResults.items || aiSearchResults.listings) && (aiSearchResults.results || aiSearchResults.items || aiSearchResults.listings).length > 0 ? (
                   <div>
-                    <p className="text-sm text-gray-600 mb-4">
-                      Found {(aiSearchResults.results || aiSearchResults.items || aiSearchResults.listings).length} properties for: "{searchData.searchQuery}"
-                    </p>
+                    {/* Results Summary and Pagination Controls */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="text-sm text-gray-600">
+                        We found the top {(aiSearchResults.results || aiSearchResults.items || aiSearchResults.listings).length} listings for you • Showing {((aiSearchPage - 1) * 10) + 1} - {Math.min(aiSearchPage * 10, (aiSearchResults.results || aiSearchResults.items || aiSearchResults.listings).length)} of {(aiSearchResults.results || aiSearchResults.items || aiSearchResults.listings).length} results
+                      </div>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={prevPage}
+                          disabled={aiSearchPage === 1}
+                          className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Previous
+                        </button>
+                        <span className="px-3 py-1 text-sm text-gray-600">
+                          Page {aiSearchPage} of {Math.ceil((aiSearchResults.results || aiSearchResults.items || aiSearchResults.listings).length / 10)}
+                        </span>
+                        <button
+                          onClick={nextPage}
+                          disabled={aiSearchPage >= Math.ceil((aiSearchResults.results || aiSearchResults.items || aiSearchResults.listings).length / 10)}
+                          className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
                     
                     {/* 10 rows, 2 columns each */}
                     <div className="space-y-6">
-                      {(aiSearchResults.results || aiSearchResults.items || aiSearchResults.listings).slice(0, 10).map((property, index) => (
+                      {(aiSearchResults.results || aiSearchResults.items || aiSearchResults.listings)
+                        .slice((aiSearchPage - 1) * 10, aiSearchPage * 10)
+                        .map((property, index) => (
                         <div key={property.id || index} className="flex gap-6">
                           {/* Left Column - Listing Card (same format as home page) */}
                           <div className="flex-1">

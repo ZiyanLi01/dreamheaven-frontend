@@ -35,14 +35,16 @@ export const searchProperties = async (searchData) => {
     console.log('API - Cleaned search data being sent to backend:', cleanSearchData);
     console.log('API - Cleaned search data type:', typeof cleanSearchData);
     console.log('API - Cleaned search data keys:', Object.keys(cleanSearchData));
-    console.log('API - Making request to:', `${API_BASE_URL}/search/`);
+    console.log('API - Making request to:', `${API_BASE_URL}/search/simple`);
 
-    const response = await fetch(`${API_BASE_URL}/search/`, {
+    const response = await fetch(`${API_BASE_URL}/search/simple`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(cleanSearchData)
+      body: JSON.stringify(cleanSearchData),
+      mode: 'cors',
+      credentials: 'omit'
     });
 
     if (!response.ok) {

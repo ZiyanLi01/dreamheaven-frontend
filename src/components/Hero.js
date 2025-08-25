@@ -35,11 +35,16 @@ const Hero = ({ onTryAiSearch, user, onLoginClick, onLogout }) => {
 
             {/* Logo - Centered */}
             <div className="flex items-center absolute left-1/2 transform -translate-x-1/2">
-                              <img 
+              <button 
+                onClick={() => window.location.href = '/'}
+                className="hover:opacity-80 transition-opacity duration-200"
+              >
+                <img 
                   src="/logo3.png?v=1" 
                   alt="Dream Haven" 
-                  className="h-[150px]"
+                  className="h-[150px] cursor-pointer"
                 />
+              </button>
             </div>
 
             {/* User Icon */}
@@ -127,8 +132,8 @@ const Hero = ({ onTryAiSearch, user, onLoginClick, onLogout }) => {
             <span className="text-white/80 font-medium">Trusted by 1,200+ users</span>
           </div>
           
-          {/* Feature List - 2 Columns with Icons */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+          {/* Feature List - Center Aligned Single Column */}
+          <div className="flex flex-col items-center space-y-4 max-w-2xl mx-auto">
             <div className="flex items-center space-x-3">
               <Check className="w-5 h-5 text-green-400 flex-shrink-0 drop-shadow-sm" />
               <span className="text-white font-medium drop-shadow-sm">No more complex filters</span>
