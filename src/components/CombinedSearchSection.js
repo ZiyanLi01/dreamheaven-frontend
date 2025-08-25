@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useImperativeHandle } from 'react';
 import { ChevronDown, Search, Filter, Sparkles, Lock, X, Bed, Bath, Ruler, Car, MapPin } from 'lucide-react';
 import { searchProperties, aiSearchProperties } from '../services/api';
 
 // PropertyCard component
-const PropertyCard = ({ property }) => {
+const PropertyCard = ({ property, onClick }) => {
   // Helper function to format address
   const formatAddress = () => {
     if (property.address) {
@@ -130,13 +130,16 @@ const PropertyCard = ({ property }) => {
       return 'For Sale';
     }
     if (propertyListingType === 'both') {
-      return 'For Rent';
+      return 'Sale & Rent';
     }
     return 'For Sale'; // Default fallback
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
+    <div 
+      className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300 cursor-pointer"
+      onClick={onClick}
+    >
       {/* Property Image - 16:9 ratio */}
       <div className="relative aspect-video bg-gradient-to-br from-blue-100 to-blue-200">
         {getImageUrl() && (
@@ -205,7 +208,7 @@ const PropertyCard = ({ property }) => {
   );
 };
 
-const CombinedSearchSection = ({ user, onLoginRequired, onSearchResults, onFilterResults, isSearching, setIsSearching, onAiResultsChange }) => {
+const CombinedSearchSection = React.forwardRef(({ user, onLoginRequired, onSearchResults, onFilterResults, isSearching, setIsSearching, onAiResultsChange }, ref) => {
   const [searchData, setSearchData] = useState({
     location: '',
     rent: '',
@@ -224,13 +227,21 @@ const CombinedSearchSection = ({ user, onLoginRequired, onSearchResults, onFilte
   const [showFilters, setShowFilters] = useState(false);
   const [showEmptyQueryModal, setShowEmptyQueryModal] = useState(false);
   const [showLoginRequiredModal, setShowLoginRequiredModal] = useState(false);
+  const [showPropertyModal, setShowPropertyModal] = useState(false);
+  const [selectedProperty, setSelectedProperty] = useState(null);
   const [aiSearchResults, setAiSearchResults] = useState(null);
   const [whatYouNeed, setWhatYouNeed] = useState('');
   const [applyFilter, setApplyFilter] = useState(false);
   const [isFilterSearching, setIsFilterSearching] = useState(false);
   const [isAiSearching, setIsAiSearching] = useState(false);
   const [expandedReasons, setExpandedReasons] = useState({});
+  const [isHighlighted, setIsHighlighted] = useState(false);
   const searchRef = useRef(null);
+
+  // Expose handleTryAiSearch function to parent component
+  useImperativeHandle(ref, () => ({
+    handleTryAiSearch
+  }));
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -306,7 +317,9 @@ const CombinedSearchSection = ({ user, onLoginRequired, onSearchResults, onFilte
         bed: searchData.bed,
         bath: searchData.bath,
         sortBy: searchData.sortBy,
-        sortOrder: searchData.sortOrder
+        sortOrder: searchData.sortOrder,
+        page: 1,
+        limit: 100  // Request more properties to get closer to the expected 80
       };
 
       console.log('Filter search data before API call:', searchPayload);
@@ -470,6 +483,22 @@ const CombinedSearchSection = ({ user, onLoginRequired, onSearchResults, onFilte
     if (e.key === 'Enter') {
       handleAiSearchOnly();
     }
+  };
+
+  const handlePropertyClick = (property) => {
+    setSelectedProperty(property);
+    setShowPropertyModal(true);
+  };
+
+  const handleTryAiSearch = () => {
+    setIsHighlighted(true);
+    // Scroll to search section
+    const searchSection = document.getElementById('ai-search-section');
+    if (searchSection) {
+      searchSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    // Remove highlight after 3 seconds
+    setTimeout(() => setIsHighlighted(false), 3000);
   };
 
     // Helper function to parse match_details into tags
@@ -904,7 +933,7 @@ const CombinedSearchSection = ({ user, onLoginRequired, onSearchResults, onFilte
               <button 
                 onClick={handleFilterOnly}
                 disabled={isFilterSearching}
-                className="bg-dream-blue-600 hover:bg-dream-blue-700 text-white px-4 py-3 rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2 w-full disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-white hover:bg-gray-50 text-dream-blue-600 border-2 border-dream-blue-600 px-4 py-3 rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2 w-full disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isFilterSearching ? (
                   <>
@@ -959,14 +988,18 @@ const CombinedSearchSection = ({ user, onLoginRequired, onSearchResults, onFilte
           )}
 
           {/* AI Search Input */}
-          <div className="relative">
+          <div id="ai-search-section" className="relative">
             <div className="flex items-center space-x-2 mb-2">
               <Sparkles className="w-5 h-5 text-dream-blue-600" />
               <span className="text-lg font-semibold text-dream-gray-800">AI Natural Language Search</span>
             </div>
             <textarea
               placeholder="Describe your dream home... e.g., 'Modern house with big yard, near good schools, bright & quiet'"
-              className="w-full px-4 py-3 pr-24 text-base border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-dream-blue-500 focus:border-transparent transition-all duration-200 resize-none bg-blue-50"
+              className={`w-full px-4 py-3 pr-24 text-base border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-dream-blue-500 focus:border-transparent transition-all duration-200 resize-none ${
+                isHighlighted 
+                  ? 'border-blue-400 bg-blue-50 shadow-lg shadow-blue-200 ring-4 ring-blue-200' 
+                  : 'border-gray-200 bg-blue-50'
+              }`}
               value={searchData.searchQuery}
               onChange={(e) => handleInputChange('searchQuery', e.target.value)}
               onKeyPress={handleKeyPress}
@@ -989,7 +1022,7 @@ const CombinedSearchSection = ({ user, onLoginRequired, onSearchResults, onFilte
               <button
                 onClick={handleAiSearchOnly}
                 disabled={isAiSearching}
-                className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-dream-blue-600 hover:bg-dream-blue-700 text-white px-4 py-3 rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed w-32"
               >
                 {isAiSearching ? (
                   <>
@@ -1072,7 +1105,7 @@ const CombinedSearchSection = ({ user, onLoginRequired, onSearchResults, onFilte
                         <div key={property.id || index} className="flex gap-6">
                           {/* Left Column - Listing Card (same format as home page) */}
                           <div className="flex-1">
-                            <PropertyCard property={property} />
+                            <PropertyCard property={property} onClick={() => handlePropertyClick(property)} />
                           </div>
                           
                           {/* Right Column - Recommendation Panel */}
@@ -1096,14 +1129,8 @@ const CombinedSearchSection = ({ user, onLoginRequired, onSearchResults, onFilte
                               
                               {/* Recommendation Tags */}
                               <div className="flex-1">
-                                <div className="flex items-center justify-between mb-3">
+                                <div className="mb-3">
                                   <h5 className="text-base font-medium text-gray-700">Recommendation</h5>
-                                  <button
-                                    onClick={() => toggleReasonExpansion(property.id || index)}
-                                    className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded transition-colors"
-                                  >
-                                    Why?
-                                  </button>
                                 </div>
                                 
                                 {/* Tags */}
@@ -1279,8 +1306,276 @@ const CombinedSearchSection = ({ user, onLoginRequired, onSearchResults, onFilte
           </div>
         </div>
       )}
+
+      {/* Property Details Modal */}
+      {showPropertyModal && selectedProperty && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex justify-between items-center p-6 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-800">Property Details</h2>
+              <button
+                onClick={() => setShowPropertyModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              {/* Property Images */}
+              <div className="mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {(() => {
+                    const images = selectedProperty.images || [];
+                    const imageUrl = selectedProperty.image_url;
+                    const allImages = imageUrl ? [imageUrl, ...images] : images;
+                    
+                    if (allImages.length > 0) {
+                      return allImages.slice(0, 4).map((img, index) => (
+                        <div key={index} className="aspect-video bg-gray-200 rounded-lg overflow-hidden">
+                          <img 
+                            src={img} 
+                            alt={`Property ${index + 1}`}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.src = 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&h=300&fit=crop';
+                            }}
+                          />
+                        </div>
+                      ));
+                    } else {
+                      return (
+                        <div className="aspect-video bg-gray-200 rounded-lg overflow-hidden">
+                          <img 
+                            src="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&h=300&fit=crop"
+                            alt="Property placeholder"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      );
+                    }
+                  })()}
+                </div>
+              </div>
+
+              {/* Property Title and Address */}
+              <div className="mb-6">
+                <h3 className="text-2xl font-bold text-gray-800 mb-2">
+                  {selectedProperty.title || selectedProperty.address || 'Property Details'}
+                </h3>
+                <div className="flex items-center space-x-2 text-gray-600">
+                  <MapPin className="w-4 h-4" />
+                  <span>
+                    {selectedProperty.address || 'Address not available'}
+                    {selectedProperty.city && selectedProperty.state && (
+                      <span className="text-gray-500">
+                        , {selectedProperty.city}, {selectedProperty.state}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              {/* Price and Status */}
+              <div className="mb-6">
+                <div className="bg-dream-blue-600 text-white text-center py-4 rounded-lg font-bold text-xl">
+                  {(() => {
+                    if (selectedProperty.price) {
+                      return `$${Math.round(selectedProperty.price).toLocaleString()}`;
+                    }
+                    
+                    const priceForSale = selectedProperty.price_for_sale || 0;
+                    const pricePerMonth = selectedProperty.price_per_month || 0;
+                    const pricePerNight = selectedProperty.price_per_night || 0;
+                    const propertyListingType = selectedProperty.property_listing_type || '';
+                    
+                    if (propertyListingType === 'rent' || propertyListingType === 'both') {
+                      const rentPrice = pricePerMonth || pricePerNight * 30;
+                      return `$${Math.round(rentPrice).toLocaleString()}/month`;
+                    } else {
+                      return `$${Math.round(priceForSale).toLocaleString()}`;
+                    }
+                  })()}
+                </div>
+                <div className="mt-2 text-center">
+                  {(() => {
+                    const propertyListingType = selectedProperty.property_listing_type || '';
+                    if (propertyListingType === 'both') {
+                      return (
+                        <div className="space-y-2">
+                          <div className="flex justify-center space-x-2">
+                            <span className="bg-dream-blue-800 text-white text-sm px-3 py-1 rounded-full">
+                              For Sale
+                            </span>
+                            <span className="bg-green-600 text-white text-sm px-3 py-1 rounded-full">
+                              For Rent
+                            </span>
+                          </div>
+                          <span className="text-sm text-gray-600 font-medium block">
+                            This property is available for both sale and rent
+                          </span>
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <>
+                          <span className="bg-dream-blue-800 text-white text-sm px-3 py-1 rounded-full">
+                            {propertyListingType === 'rent' ? 'For Rent' : 'For Sale'}
+                          </span>
+                          <div className="mt-2">
+                            <span className="text-sm text-gray-600 font-medium">
+                              {propertyListingType === 'rent' 
+                                ? 'This property is available for rent' 
+                                : 'This property is available for sale'
+                              }
+                            </span>
+                          </div>
+                        </>
+                      );
+                    }
+                  })()}
+                </div>
+              </div>
+
+              {/* Property Details Grid */}
+              <div className="space-y-6 mb-6">
+                {/* First Row: Bedrooms, Bathrooms, Square Feet */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Bed className="w-5 h-5 text-dream-blue-600" />
+                      <span className="font-semibold text-gray-800">Bedrooms</span>
+                    </div>
+                    <span className="text-lg text-gray-600">
+                      {selectedProperty.bedrooms !== undefined ? selectedProperty.bedrooms : 'N/A'}
+                    </span>
+                  </div>
+
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Bath className="w-5 h-5 text-dream-blue-600" />
+                      <span className="font-semibold text-gray-800">Bathrooms</span>
+                    </div>
+                    <span className="text-lg text-gray-600">
+                      {selectedProperty.bathrooms !== undefined ? selectedProperty.bathrooms : 'N/A'}
+                    </span>
+                  </div>
+
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Ruler className="w-5 h-5 text-dream-blue-600" />
+                      <span className="font-semibold text-gray-800">Square Feet</span>
+                    </div>
+                    <span className="text-lg text-gray-600">
+                      {selectedProperty.square_feet !== undefined ? selectedProperty.square_feet.toLocaleString() : 'N/A'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Second Row: Garage, Year Built, Year Renovated */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Car className="w-5 h-5 text-dream-blue-600" />
+                      <span className="font-semibold text-gray-800">Garage</span>
+                    </div>
+                    <span className="text-lg text-gray-600">
+                      {selectedProperty.garage_number !== undefined ? selectedProperty.garage_number : 'N/A'}
+                    </span>
+                  </div>
+
+                  {selectedProperty.year_built && (
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="text-lg">🏗️</span>
+                        <span className="font-semibold text-gray-800">Year Built</span>
+                      </div>
+                      <span className="text-lg text-gray-600">
+                        {selectedProperty.year_built}
+                      </span>
+                    </div>
+                  )}
+
+                  {selectedProperty.year_renovated && (
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="text-lg">🔨</span>
+                        <span className="font-semibold text-gray-800">Year Renovated</span>
+                      </div>
+                      <span className="text-lg text-gray-600">
+                        {selectedProperty.year_renovated}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Third Row: Reviews */}
+                {selectedProperty.review_count !== undefined && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="text-lg">⭐</span>
+                        <span className="font-semibold text-gray-800">Reviews</span>
+                      </div>
+                      <span className="text-lg text-gray-600">
+                        {selectedProperty.review_count}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Description */}
+              {selectedProperty.description && (
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold text-gray-800 mb-3">Description</h4>
+                  <p className="text-gray-600 leading-relaxed">
+                    {selectedProperty.description}
+                  </p>
+                </div>
+              )}
+
+              {/* Amenities */}
+              {selectedProperty.amenities && selectedProperty.amenities.length > 0 && (
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold text-gray-800 mb-3">Amenities</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {selectedProperty.amenities.map((amenity, index) => (
+                      <div key={index} className="flex items-center space-x-2">
+                        <span className="text-green-600">✓</span>
+                        <span className="text-gray-600">{amenity}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Tags */}
+              {selectedProperty.tags && selectedProperty.tags.length > 0 && (
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold text-gray-800 mb-3">Tags</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedProperty.tags.map((tag, index) => (
+                      <span 
+                        key={index} 
+                        className="bg-blue-100 text-blue-800 text-sm px-3 py-1 rounded-full font-medium"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
-};
+});
 
 export default CombinedSearchSection;

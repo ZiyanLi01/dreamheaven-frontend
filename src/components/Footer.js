@@ -7,16 +7,12 @@ const Footer = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
           {/* Logo */}
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
-              <div className="w-4 h-3 bg-dream-blue-600 rounded-sm relative">
-                <div className="absolute -top-1 left-0 w-0 h-0 border-l-2 border-r-2 border-b-2 border-transparent border-b-dream-blue-600"></div>
-              </div>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-white font-bold text-lg">Dream</span>
-              <span className="text-blue-200 font-medium text-sm -mt-1">Haven</span>
-            </div>
+          <div className="flex items-center">
+            <img 
+              src="/logo3.png?v=1" 
+              alt="Dream Haven" 
+              className="h-32 w-auto"
+            />
           </div>
 
           {/* Contact Information */}

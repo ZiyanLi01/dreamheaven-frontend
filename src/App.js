@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import Header from './components/Header';
+import React, { useState, useEffect, useRef } from 'react';
 import Hero from './components/Hero';
 import CombinedSearchSection from './components/CombinedSearchSection';
 import PropertyListings from './components/PropertyListings';
@@ -12,6 +11,7 @@ function App() {
   const [searchFilters, setSearchFilters] = useState({});
   const [isSearching, setIsSearching] = useState(false);
   const [showAiResults, setShowAiResults] = useState(false);
+  const combinedSearchRef = useRef(null);
   
 
   
@@ -50,6 +50,13 @@ function App() {
     setSearchResults(null);
     setSearchFilters({});
     setShowAiResults(false);
+  };
+
+  const handleTryAiSearch = () => {
+    // Trigger the highlight function in CombinedSearchSection
+    if (combinedSearchRef.current && combinedSearchRef.current.handleTryAiSearch) {
+      combinedSearchRef.current.handleTryAiSearch();
+    }
   };
 
   // Authentication functions
@@ -134,13 +141,14 @@ function App() {
 
   return (
     <div className="min-h-screen bg-white">
-      <Header 
+      <Hero 
+        onTryAiSearch={handleTryAiSearch}
         user={user} 
         onLoginClick={() => openLoginModal('login')}
         onLogout={handleLogout}
       />
-      <Hero />
       <CombinedSearchSection 
+        ref={combinedSearchRef}
         user={user}
         onLoginRequired={() => openLoginModal('login')}
         onSearchResults={handleSearch}

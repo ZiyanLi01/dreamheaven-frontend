@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Bed, Bath, Ruler, Car, MapPin } from 'lucide-react';
+import { Bed, Bath, Ruler, Car, MapPin, X } from 'lucide-react';
 
-const PropertyCard = ({ property }) => {
+const PropertyCard = ({ property, onClick }) => {
   // Helper function to format address
   const formatAddress = () => {
     if (property.address) {
@@ -98,7 +98,10 @@ const PropertyCard = ({ property }) => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
+    <div 
+      className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300 cursor-pointer"
+      onClick={onClick}
+    >
       {/* Property Image */}
       <div className="relative h-48 bg-gradient-to-br from-blue-100 to-blue-200">
         {getImageUrl() && (
@@ -169,6 +172,9 @@ const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, o
   const [error, setError] = useState(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [showPropertyModal, setShowPropertyModal] = useState(false);
+  const [selectedProperty, setSelectedProperty] = useState(null);
+  const [displayCount, setDisplayCount] = useState(9); // Start with 9 properties (3 rows)
   const [filters, setFilters] = useState({
     location: '',
     bedrooms: '',
@@ -185,6 +191,11 @@ const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, o
     filtersRef.current = filters;
   }, [filters]);
 
+  const handlePropertyClick = (property) => {
+    setSelectedProperty(property);
+    setShowPropertyModal(true);
+  };
+
   const fetchProperties = useCallback(async (pageNum = 1, append = false) => {
     console.log(`PropertyListings: fetchProperties called with pageNum=${pageNum}, append=${append}`);
     setLoading(true);
@@ -197,9 +208,9 @@ const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, o
       // Convert filters to query parameters for GET request
       const queryParams = new URLSearchParams();
       
-      // Add pagination
+      // Add pagination - use multiples of 3 for complete rows
       queryParams.append('page', pageNum.toString());
-      queryParams.append('limit', '20');
+      queryParams.append('limit', '21');
       
       // Add filters to query parameters
       if (currentFilters.location) {
@@ -230,7 +241,7 @@ const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, o
       // Use the correct backend endpoint - POST /api/search
       const payload = {
         page: pageNum,
-        limit: 20
+        limit: 10 // Show 9 properties (3 rows of 3) + 1 extra to check if more exist
       };
 
       // Add filters to payload
@@ -296,8 +307,12 @@ const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, o
       
       if (append) {
         setProperties(prev => [...prev, ...listings]);
+        // Increase display count for new properties
+        setDisplayCount(prev => prev + listings.length);
       } else {
         setProperties(listings);
+        // Reset display count to initial value
+        setDisplayCount(9);
       }
       
       setHasMore(hasMore);
@@ -346,6 +361,7 @@ const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, o
       }
       
       setProperties(listings);
+      setDisplayCount(9); // Reset to show first 9 properties
       setHasMore(false); // Don't show load more for search results
       setError(null);
       return; // Exit early, don't fetch from API
@@ -433,16 +449,24 @@ const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, o
         {properties && properties.length > 0 && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {properties.map((property) => (
-                <PropertyCard key={property.id} property={property} />
+              {properties.slice(0, displayCount).map((property) => (
+                <PropertyCard key={property.id} property={property} onClick={() => handlePropertyClick(property)} />
               ))}
             </div>
             
             {/* Load More Button */}
-            {hasMore && (
+            {(hasMore || displayCount < properties.length) && (
               <div className="text-center mt-8">
                 <button
-                  onClick={handleLoadMore}
+                  onClick={() => {
+                    if (displayCount < properties.length) {
+                      // Show more from existing properties
+                      setDisplayCount(prev => Math.min(prev + 9, properties.length));
+                    } else {
+                      // Fetch more from API
+                      handleLoadMore();
+                    }
+                  }}
                   disabled={loading}
                   className="bg-dream-blue-600 text-white px-8 py-3 rounded-md hover:bg-dream-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -472,6 +496,271 @@ const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, o
             </button>
           </div>
         )}
+
+      {/* Property Details Modal */}
+      {showPropertyModal && selectedProperty && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex justify-between items-center p-6 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-800">Property Details</h2>
+              <button
+                onClick={() => setShowPropertyModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              {/* Property Images */}
+              <div className="mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {(() => {
+                    const images = selectedProperty.images || [];
+                    const imageUrl = selectedProperty.image_url;
+                    const allImages = imageUrl ? [imageUrl, ...images] : images;
+                    
+                    if (allImages.length > 0) {
+                      return allImages.slice(0, 4).map((img, index) => (
+                        <div key={index} className="aspect-video bg-gray-200 rounded-lg overflow-hidden">
+                          <img 
+                            src={img} 
+                            alt={`Property ${index + 1}`}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.src = 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&h=300&fit=crop';
+                            }}
+                          />
+                        </div>
+                      ));
+                    } else {
+                      return (
+                        <div className="aspect-video bg-gray-200 rounded-lg overflow-hidden">
+                          <img 
+                            src="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&h=300&fit=crop"
+                            alt="Property placeholder"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      );
+                    }
+                  })()}
+                </div>
+              </div>
+
+              {/* Property Title and Address */}
+              <div className="mb-6">
+                <h3 className="text-2xl font-bold text-gray-800 mb-2">
+                  {selectedProperty.title || selectedProperty.address || 'Property Details'}
+                </h3>
+                <div className="flex items-center space-x-2 text-gray-600">
+                  <MapPin className="w-4 h-4" />
+                  <span>
+                    {selectedProperty.address || 'Address not available'}
+                    {selectedProperty.city && selectedProperty.state && (
+                      <span className="text-gray-500">
+                        , {selectedProperty.city}, {selectedProperty.state}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              {/* Price and Status */}
+              <div className="mb-6">
+                <div className="bg-dream-blue-600 text-white text-center py-4 rounded-lg font-bold text-xl">
+                  {(() => {
+                    if (selectedProperty.price) {
+                      return `$${Math.round(selectedProperty.price).toLocaleString()}`;
+                    }
+                    
+                    const priceForSale = selectedProperty.price_for_sale || 0;
+                    const pricePerMonth = selectedProperty.price_per_month || 0;
+                    const pricePerNight = selectedProperty.price_per_night || 0;
+                    const propertyListingType = selectedProperty.property_listing_type || '';
+                    
+                    if (propertyListingType === 'rent' || propertyListingType === 'both') {
+                      const rentPrice = pricePerMonth || pricePerNight * 30;
+                      return `$${Math.round(rentPrice).toLocaleString()}/month`;
+                    } else {
+                      return `$${Math.round(priceForSale).toLocaleString()}`;
+                    }
+                  })()}
+                </div>
+                <div className="mt-2 text-center">
+                  {(() => {
+                    const propertyListingType = selectedProperty.property_listing_type || '';
+                    if (propertyListingType === 'both') {
+                      return (
+                        <div className="space-y-2">
+                          <div className="flex justify-center space-x-2">
+                            <span className="bg-dream-blue-800 text-white text-sm px-3 py-1 rounded-full">
+                              For Sale
+                            </span>
+                            <span className="bg-green-600 text-white text-sm px-3 py-1 rounded-full">
+                              For Rent
+                            </span>
+                          </div>
+                          <span className="text-sm text-gray-600 font-medium block">
+                            This property is available for both sale and rent
+                          </span>
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <>
+                          <span className="bg-dream-blue-800 text-white text-sm px-3 py-1 rounded-full">
+                            {propertyListingType === 'rent' ? 'For Rent' : 'For Sale'}
+                          </span>
+                          <div className="mt-2">
+                            <span className="text-sm text-gray-600 font-medium">
+                              {propertyListingType === 'rent' 
+                                ? 'This property is available for rent' 
+                                : 'This property is available for sale'
+                              }
+                            </span>
+                          </div>
+                        </>
+                      );
+                    }
+                  })()}
+                </div>
+              </div>
+
+              {/* Property Details Grid */}
+              <div className="space-y-6 mb-6">
+                {/* First Row: Bedrooms, Bathrooms, Square Feet */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Bed className="w-5 h-5 text-dream-blue-600" />
+                      <span className="font-semibold text-gray-800">Bedrooms</span>
+                    </div>
+                    <span className="text-lg text-gray-600">
+                      {selectedProperty.bedrooms !== undefined ? selectedProperty.bedrooms : 'N/A'}
+                    </span>
+                  </div>
+
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Bath className="w-5 h-5 text-dream-blue-600" />
+                      <span className="font-semibold text-gray-800">Bathrooms</span>
+                    </div>
+                    <span className="text-lg text-gray-600">
+                      {selectedProperty.bathrooms !== undefined ? selectedProperty.bathrooms : 'N/A'}
+                    </span>
+                  </div>
+
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Ruler className="w-5 h-5 text-dream-blue-600" />
+                      <span className="font-semibold text-gray-800">Square Feet</span>
+                    </div>
+                    <span className="text-lg text-gray-600">
+                      {selectedProperty.square_feet !== undefined ? selectedProperty.square_feet.toLocaleString() : 'N/A'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Second Row: Garage, Year Built, Year Renovated */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Car className="w-5 h-5 text-dream-blue-600" />
+                      <span className="font-semibold text-gray-800">Garage</span>
+                    </div>
+                    <span className="text-lg text-gray-600">
+                      {selectedProperty.garage_number !== undefined ? selectedProperty.garage_number : 'N/A'}
+                    </span>
+                  </div>
+
+                  {selectedProperty.year_built && (
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="text-lg">🏗️</span>
+                        <span className="font-semibold text-gray-800">Year Built</span>
+                      </div>
+                      <span className="text-lg text-gray-600">
+                        {selectedProperty.year_built}
+                      </span>
+                    </div>
+                  )}
+
+                  {selectedProperty.year_renovated && (
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="text-lg">🔨</span>
+                        <span className="font-semibold text-gray-800">Year Renovated</span>
+                      </div>
+                      <span className="text-lg text-gray-600">
+                        {selectedProperty.year_renovated}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Third Row: Reviews and Rating */}
+                {(selectedProperty.review_count !== undefined || selectedProperty.rating !== undefined) && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {selectedProperty.review_count !== undefined && (
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <span className="text-lg">⭐</span>
+                          <span className="font-semibold text-gray-800">Reviews</span>
+                        </div>
+                        <span className="text-lg text-gray-600">
+                          {selectedProperty.review_count}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {selectedProperty.rating !== undefined && (
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <span className="text-lg">⭐</span>
+                          <span className="font-semibold text-gray-800">Rating</span>
+                        </div>
+                        <span className="text-lg text-gray-600">
+                          {selectedProperty.rating}/5
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Description */}
+              {selectedProperty.description && (
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold text-gray-800 mb-3">Description</h4>
+                  <p className="text-gray-600 leading-relaxed">
+                    {selectedProperty.description}
+                  </p>
+                </div>
+              )}
+
+              {/* Amenities */}
+              {selectedProperty.amenities && selectedProperty.amenities.length > 0 && (
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold text-gray-800 mb-3">Amenities</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {selectedProperty.amenities.map((amenity, index) => (
+                      <div key={index} className="flex items-center space-x-2">
+                        <span className="text-green-600">✓</span>
+                        <span className="text-gray-600">{amenity}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     </section>
   );
