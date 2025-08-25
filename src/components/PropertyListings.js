@@ -208,12 +208,15 @@ const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, o
       // Use the correct backend endpoint - POST /search
       const payload = {
         page: pageNum,
-        limit: 20 // Backend now returns 20 listings per page
+        limit: 18 // Show 18 listings (6 rows of 3) for home page
       };
 
       // Add filters to payload
       if (currentFilters.location) {
         payload.location = currentFilters.location;
+      } else if (!searchResults && Object.keys(searchFilters).length === 0) {
+        // On home page, automatically fetch San Francisco listings
+        payload.location = 'San Francisco, CA';
       }
       if (currentFilters.bedrooms) {
         payload.bed = currentFilters.bedrooms + '+';
@@ -347,7 +350,7 @@ const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, o
     
     // Only fetch from API once on initial load if we don't have search results
     if (!hasInitialized.current && !searchResults && Object.keys(searchFilters).length === 0) {
-      console.log('PropertyListings: Fetching initial properties from API (first time only)');
+      console.log('PropertyListings: Fetching initial San Francisco properties for home page');
       hasInitialized.current = true;
       fetchProperties(1, false);
     }
