@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { searchProperties as searchPropertiesApi } from '../services/api';
 import { Bed, Bath, Ruler, Car, MapPin, X } from 'lucide-react';
 
 const PropertyCard = ({ property, onClick }) => {
@@ -228,26 +229,9 @@ const PropertyListings = ({ initialFilters = {}, searchResults, searchFilters, o
         payload.rent = currentFilters.status;
       }
       
-      // Use proxy configuration to avoid CORS issues
-      const fullUrl = `/search/`;
-      
-      console.log('Making API request to:', fullUrl);
-      console.log('Request payload:', payload);
-      
-      const response = await fetch(fullUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
+      // Call centralized API service so production uses absolute URL
+      console.log('PropertyListings: Request payload to api.searchProperties:', payload);
+      const data = await searchPropertiesApi(payload);
       
       // Debug logging to see the API response
       console.log('API Response:', data);
